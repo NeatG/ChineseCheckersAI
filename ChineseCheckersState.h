@@ -44,7 +44,7 @@ public:
   ChineseCheckersState &operator=(const ChineseCheckersState&&) = delete;
 
   // Put all valid moves into the vector of moves passed in by reference
-  void getMoves(std::set<Move> &moves) const;
+  void getMoves(std::vector<Move> &moves) const;
 
   // Apply the move m, returning true if m is a valid move, false if not
   bool applyMove(Move m);
@@ -80,15 +80,15 @@ public:
 private:
   int currentPlayer;
 
-  void getMovesSingleStep(std::set<Move> &moves, unsigned from) const;
+  void getMovesSingleStep(std::vector<Move> &moves, unsigned from) const;
 
   //my added functions are the 3 below.
   
   //This method puts all the moves that can be made via jumping in moves.
-  void getMovesJumpStep(std::set<Move> &moves, unsigned originalFrom, unsigned from) const;
+  void getMovesJumpStep(std::vector<Move> &moves, unsigned originalFrom, unsigned from) const;
   //This method returns true if the move m exists in moves, false otherwise.
   //Currently it does a linear search to determine this.
-  bool moveExists(std::set<Move> &moves, Move m) const;
+  bool moveExists(std::vector<Move> &moves, Move m) const;
   void swapTurn();
 
   bool player1Wins() const;

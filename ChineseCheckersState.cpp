@@ -41,7 +41,7 @@ ChineseCheckersState::ChineseCheckersState(const ChineseCheckersState& other) {
     this->currentPlayer = other.currentPlayer;
 }
 
-void ChineseCheckersState::getMoves(std::set<Move> &moves) const {
+void ChineseCheckersState::getMoves(std::vector<Move> &moves) const {
   // WARNING: This function must not return duplicate moves
     moves.clear();
     //moves.reserve(200);
@@ -172,35 +172,35 @@ std::string ChineseCheckersState::dumpState() const {
   return out.str();
 }
 
-void ChineseCheckersState::getMovesSingleStep(std::set<Move> &moves, unsigned from) const {
+void ChineseCheckersState::getMovesSingleStep(std::vector<Move> &moves, unsigned from) const {
   unsigned row = from / 9;
   unsigned col = from % 9;
 
   // Up Left
   if (col > 0 && board[from - 1] == 0)
-    moves.insert({from, from - 1});
+    moves.push_back({from, from - 1});
 
   // Up Right
   if (row > 0 && board[from - 9] == 0)
-    moves.insert({from, from - 9});
+    moves.push_back({from, from - 9});
 
   // Left
   if (col > 0 && row < 8 && board[from + 8] == 0)
-    moves.insert({from, from + 8});
+    moves.push_back({from, from + 8});
 
   // Right
   if (col < 8 && row > 0 && board[from - 8] == 0)
-    moves.insert({from, from - 8});
+    moves.push_back({from, from - 8});
 
   // Down Left
   if (row < 8 && board[from + 9] == 0)
-    moves.insert({from, from + 9});
+    moves.push_back({from, from + 9});
 
   // Down Right
   if (col < 8 && board[from + 1] == 0)
-    moves.insert({from, from + 1});
+    moves.push_back({from, from + 1});
 }
-bool ChineseCheckersState::moveExists(std::set<Move> &moves, Move m) const
+bool ChineseCheckersState::moveExists(std::vector<Move> &moves, Move m) const
 {
     return std::find(moves.begin(),moves.end(),m) != moves.end();;
     /*auto end = moves.end();
@@ -211,7 +211,7 @@ bool ChineseCheckersState::moveExists(std::set<Move> &moves, Move m) const
  //
 }
 
-void ChineseCheckersState::getMovesJumpStep(std::set<Move> &moves, unsigned originalFrom, unsigned from) const
+void ChineseCheckersState::getMovesJumpStep(std::vector<Move> &moves, unsigned originalFrom, unsigned from) const
 {
     unsigned row = from / 9;
     unsigned col = from % 9;
@@ -284,69 +284,55 @@ void ChineseCheckersState::getMovesJumpStep(std::set<Move> &moves, unsigned orig
         }
     }*/
     
-      std::pair<std::set<Move>::iterator,bool> ret;
     // Up Left#
-    if (col > 0 && (from - 1) % 9 > 0 && board[from - 1] != 0 && board[from - 2] == 0 /*&& !moveExists(moves, { originalFrom, from - 2 })*/) //col2 = (from - 1) % 9
+    if (col > 0 && (from - 1) % 9 > 0 && board[from - 1] != 0 && board[from - 2] == 0 && !moveExists(moves, { originalFrom, from - 2 })) //col2 = (from - 1) % 9
     {
-        ret = moves.insert({ originalFrom, from - 2 });
-        if (ret.second == false) {
-            getMovesJumpStep(moves, originalFrom, from - 2);
-        }
+        moves.push_back({ originalFrom, from - 2 });
+        getMovesJumpStep(moves, originalFrom, from - 2);
         
     }
     
     // Up Right
-    if (row > 0 && (from - 9) / 9 > 0 && board[from - 9] != 0 && board[from - 18] == 0 /*&& !moveExists(moves, { originalFrom, from - 18 })*/) // row2 = (from - 9) / 9;
+    if (row > 0 && (from - 9) / 9 > 0 && board[from - 9] != 0 && board[from - 18] == 0 && !moveExists(moves, { originalFrom, from - 18 })) // row2 = (from - 9) / 9;
     {
         
-        ret = moves.insert({ originalFrom, from - 18 });
-        if (ret.second == false) {
-            getMovesJumpStep(moves, originalFrom, from - 18);
-        }
+        moves.push_back({ originalFrom, from - 18 });
+        getMovesJumpStep(moves, originalFrom, from - 18);
     }
     
     // Left
     //row2 = (from + 8) / 9
     //col2 = (from + 8) % 9
-    if (col > 0 && row < 8 && (from + 8) % 9 > 0 && (from + 8) / 9 < 8 && board[from + 8] != 0 && board[from + 16] == 0/* && !moveExists(moves, { originalFrom, from + 16 })*/)
+    if (col > 0 && row < 8 && (from + 8) % 9 > 0 && (from + 8) / 9 < 8 && board[from + 8] != 0 && board[from + 16] == 0 && !moveExists(moves, { originalFrom, from + 16 }))
     {
-        ret = moves.insert({ originalFrom, from + 16 });
-        if (ret.second == false) {
-            getMovesJumpStep(moves, originalFrom, from + 16);
-        }
+        moves.push_back({ originalFrom, from + 16 });
+        getMovesJumpStep(moves, originalFrom, from + 16);
     }
     
     // Right
-    if (col < 8 && row > 0 && (from - 8) % 9 < 8 && (from - 8) / 9 > 0 && board[from - 8] != 0 && board[from - 16] == 0/* && !moveExists(moves, { originalFrom, from - 16 })*/)
+    if (col < 8 && row > 0 && (from - 8) % 9 < 8 && (from - 8) / 9 > 0 && board[from - 8] != 0 && board[from - 16] == 0 && !moveExists(moves, { originalFrom, from - 16 }))
     {
         //unsigned row2 = (from - 8) / 9;
         //unsigned col2 = (from - 8) % 9;
-        ret = moves.insert({ originalFrom, from - 16 });
-        if (ret.second == false) {
-            getMovesJumpStep(moves, originalFrom, from - 16);
-        }
+        moves.push_back({ originalFrom, from - 16 });
+        getMovesJumpStep(moves, originalFrom, from - 16);
     }
     
     // Down Left
-    if (row < 8 && (from + 9) / 9 < 8 && board[from + 9] != 0 && board[from + 18] == 0/* && !moveExists(moves, { originalFrom, from + 18 })*/)
+    if (row < 8 && (from + 9) / 9 < 8 && board[from + 9] != 0 && board[from + 18] == 0 && !moveExists(moves, { originalFrom, from + 18 }))
     {
         //unsigned row2 = (from + 9) / 9;
-        ret = moves.insert({ originalFrom, from + 18 });
-        if (ret.second == false) {
-            getMovesJumpStep(moves, originalFrom, from + 18);
-        }
+        moves.push_back({ originalFrom, from + 18 });
+        getMovesJumpStep(moves, originalFrom, from + 18);
     }
     
     // Down Right
-    if (col < 8 && (from + 1) % 9 < 8 && board[from + 1] != 0 && board[from + 2] == 0/* && !moveExists(moves, { originalFrom, from + 2 })*/)
+    if (col < 8 && (from + 1) % 9 < 8 && board[from + 1] != 0 && board[from + 2] == 0 && !moveExists(moves, { originalFrom, from + 2 }))
     {
         //unsigned col2 = (from + 1) % 9;
         
-        ret = moves.insert({ originalFrom, from + 2 });
-        if (ret.second == false) {
-            getMovesJumpStep(moves, originalFrom, from + 2);
-    
-        }
+        moves.push_back({ originalFrom, from + 2 });
+        getMovesJumpStep(moves, originalFrom, from + 2);
     }
 }
 
@@ -358,7 +344,7 @@ bool ChineseCheckersState::isValidMove(const Move &m) const {
   // NOTE: Checking validity in this way is inefficient
 
   // Get current available moves
-  std::set<Move> moves;
+  std::vector<Move> moves;
   getMoves(moves);
 
   // Find the move among the set of available moves

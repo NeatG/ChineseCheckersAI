@@ -24,7 +24,7 @@ public:
 private:
     double lowerBound = -324;
     double upperBound = 324;
-    std::unordered_map<ChineseCheckersState,double> memoMap;
+    //std::unordered_map<ChineseCheckersState,double> memoMap;
 };
 
 #endif /* defined(__HW2__DistanceStateEvaluator__) */
