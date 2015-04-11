@@ -34,20 +34,17 @@ std::ostream &operator<<(std::ostream &out, const Move &m) {
 ChineseCheckersState::ChineseCheckersState() {
   reset();
 }
-ChineseCheckersState::ChineseCheckersState(const ChineseCheckersState& other) {
-    for (int i = 0;i < 81;++i) {
-        this->board[i] = other.board[i];
-    }
-    this->currentPlayer = other.currentPlayer;
-}
 
 void ChineseCheckersState::getMoves(std::vector<Move> &moves) const {
-  // WARNING: This function must not return duplicate moves
-    moves.clear();
-    //moves.reserve(200);
+    getMoves(moves,this->currentPlayer);
+}
 
+void ChineseCheckersState::getMoves(std::vector<Move> &moves, int forPlayer) const {
+  // WARNING: This function must not return duplicate moves
+  moves.clear();
+    moves.reserve(100);
   for (unsigned i = 0; i < 81; ++i) {
-    if (board[i] == currentPlayer) {
+    if (board[i] == forPlayer) {
       getMovesSingleStep(moves, i);
       // Need to add jump moves
 	  getMovesJumpStep(moves, i, i);
@@ -86,13 +83,13 @@ bool ChineseCheckersState::undoMove(Move m) {
   swapTurn();
 
   // Check the move is valid from this state that is back one step
-/*  if (!isValidMove(m)) {
+  if (!isValidMove(m)) {
     // Woops, it was not valid, undo our changes
     swapTurn();
     std::swap(board[m.from], board[m.to]);
 
     return false;
-  }*/
+  }
 
   return true;
 }
@@ -101,7 +98,7 @@ bool ChineseCheckersState::gameOver() const {
   return player1Wins() || player2Wins();
 }
 //Returns the current player in the state.
-int ChineseCheckersState::GetCurrentPlayer() const {
+int ChineseCheckersState::getCurrentPlayer() const {
     return currentPlayer;
     
 }
@@ -202,13 +199,12 @@ void ChineseCheckersState::getMovesSingleStep(std::vector<Move> &moves, unsigned
 }
 bool ChineseCheckersState::moveExists(std::vector<Move> &moves, Move m) const
 {
-    return std::find(moves.begin(),moves.end(),m) != moves.end();;
-    /*auto end = moves.end();
+    auto end = moves.end();
     for (auto i = moves.begin();i != end;++i) {
         if (*i == m) { return true; }
     }
-    return false;*/
- //
+    return false;
+ //   return std::find(moves.begin(),moves.end(),m) != moves.end();
 }
 
 void ChineseCheckersState::getMovesJumpStep(std::vector<Move> &moves, unsigned originalFrom, unsigned from) const
@@ -216,7 +212,7 @@ void ChineseCheckersState::getMovesJumpStep(std::vector<Move> &moves, unsigned o
     unsigned row = from / 9;
     unsigned col = from % 9;
 
- /*   // Up Left
+    // Up Left
     if (col > 0 && board[from - 1] != 0)
     {
         unsigned col2 = (from - 1) % 9;
@@ -282,57 +278,6 @@ void ChineseCheckersState::getMovesJumpStep(std::vector<Move> &moves, unsigned o
             moves.push_back({ originalFrom, from + 2 });
             getMovesJumpStep(moves, originalFrom, from + 2);
         }
-    }*/
-    
-    // Up Left#
-    if (col > 0 && (from - 1) % 9 > 0 && board[from - 1] != 0 && board[from - 2] == 0 && !moveExists(moves, { originalFrom, from - 2 })) //col2 = (from - 1) % 9
-    {
-        moves.push_back({ originalFrom, from - 2 });
-        getMovesJumpStep(moves, originalFrom, from - 2);
-        
-    }
-    
-    // Up Right
-    if (row > 0 && (from - 9) / 9 > 0 && board[from - 9] != 0 && board[from - 18] == 0 && !moveExists(moves, { originalFrom, from - 18 })) // row2 = (from - 9) / 9;
-    {
-        
-        moves.push_back({ originalFrom, from - 18 });
-        getMovesJumpStep(moves, originalFrom, from - 18);
-    }
-    
-    // Left
-    //row2 = (from + 8) / 9
-    //col2 = (from + 8) % 9
-    if (col > 0 && row < 8 && (from + 8) % 9 > 0 && (from + 8) / 9 < 8 && board[from + 8] != 0 && board[from + 16] == 0 && !moveExists(moves, { originalFrom, from + 16 }))
-    {
-        moves.push_back({ originalFrom, from + 16 });
-        getMovesJumpStep(moves, originalFrom, from + 16);
-    }
-    
-    // Right
-    if (col < 8 && row > 0 && (from - 8) % 9 < 8 && (from - 8) / 9 > 0 && board[from - 8] != 0 && board[from - 16] == 0 && !moveExists(moves, { originalFrom, from - 16 }))
-    {
-        //unsigned row2 = (from - 8) / 9;
-        //unsigned col2 = (from - 8) % 9;
-        moves.push_back({ originalFrom, from - 16 });
-        getMovesJumpStep(moves, originalFrom, from - 16);
-    }
-    
-    // Down Left
-    if (row < 8 && (from + 9) / 9 < 8 && board[from + 9] != 0 && board[from + 18] == 0 && !moveExists(moves, { originalFrom, from + 18 }))
-    {
-        //unsigned row2 = (from + 9) / 9;
-        moves.push_back({ originalFrom, from + 18 });
-        getMovesJumpStep(moves, originalFrom, from + 18);
-    }
-    
-    // Down Right
-    if (col < 8 && (from + 1) % 9 < 8 && board[from + 1] != 0 && board[from + 2] == 0 && !moveExists(moves, { originalFrom, from + 2 }))
-    {
-        //unsigned col2 = (from + 1) % 9;
-        
-        moves.push_back({ originalFrom, from + 2 });
-        getMovesJumpStep(moves, originalFrom, from + 2);
     }
 }
 
@@ -361,7 +306,7 @@ Move ChineseCheckersState::translateToLocal(const std::vector<std::string> &toke
 }
 
 void ChineseCheckersState::swapTurn() {
-  currentPlayer = currentPlayer == 1 ? 2 : 1;
+  currentPlayer = 3 - currentPlayer;
 }
 
 bool ChineseCheckersState::player1Wins() const {
@@ -392,17 +337,5 @@ bool ChineseCheckersState::player2Wins() const {
   }
 
   return p2inTriangle;
-}
-
-bool operator==(const ChineseCheckersState &lhs, const ChineseCheckersState &rhs) {
-    for (int i = 0;i < 81;++i) {
-        if (lhs.board[i] != rhs.board[i]) {
-            return false;
-        }
-    }
-    if (lhs.GetCurrentPlayer() != rhs.GetCurrentPlayer()) {
-        return false;
-    }
-    return true;
 }
 

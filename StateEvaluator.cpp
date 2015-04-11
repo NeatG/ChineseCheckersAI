@@ -13,8 +13,8 @@ double StateEvaluator::evaluate(ChineseCheckersState&,int,bool repeat) {
     return 1;
 }
 double StateEvaluator::getLowerBound() {
-    return lowerBound;
+    return -1;
 }
 double StateEvaluator::getUpperBound() {
-    return upperBound;
+    return 1;
 }

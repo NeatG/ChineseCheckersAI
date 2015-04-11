@@ -25,11 +25,13 @@ Iter select_randomly(Iter start, Iter end) {
     return select_randomly(start, end, gen);
 }
 
+extern std::stringstream debug;
+
 class Agent {
 public:
     Agent();
-    void setEvaluator(StateEvaluator*);
     void playGame();
+    void setEvaluator(StateEvaluator*);
 
 private:
     Move nextMove();
@@ -41,6 +43,8 @@ private:
     StateEvaluator* stateEval;
     bool isValidStartGameMessage(const std::vector<std::string> &tokens) const;
     bool isValidMoveMessage(const std::vector<std::string> &tokens) const;
+
+
     ChineseCheckersState state;
     enum Players { player1, player2 };
     Players current_player;

@@ -11,19 +11,19 @@
 #include <algorithm>
 #include "DistanceStateEvaluator.h"
 
-Agent::Agent() : name("BestAIOtherEvaluator") {
+Agent::Agent() : name("BestAI20150409-2") {
 }
 double minNode(ChineseCheckersState& state, int depthRemaining, std::chrono::steady_clock::time_point timeLimit, double alpha, double beta, StateEvaluator& stateEval) {
     int stateWinner = state.winner();
     if (stateWinner != -1) {
-        if (stateWinner == state.GetCurrentPlayer()) { return stateEval.getLowerBound(); }
+        if (stateWinner == state.getCurrentPlayer()) { return stateEval.getLowerBound(); }
         else { return stateEval.getUpperBound(); }
     }
     if (std::chrono::steady_clock::now() > timeLimit) {
-        return stateEval.getUpperBound();
+        return 0; //It doesn't matter what we return because it will all be discarded if we've run out of time.
     }
     if (depthRemaining == 0) {
-        return stateEval.evaluate(state, 3 - state.GetCurrentPlayer());
+        return stateEval.evaluate(state, 3 - state.getCurrentPlayer());
     }
     std::vector<Move> moves;
     state.getMoves(moves);
@@ -39,14 +39,14 @@ double minNode(ChineseCheckersState& state, int depthRemaining, std::chrono::ste
 double maxNode(ChineseCheckersState& state, int depthRemaining, std::chrono::steady_clock::time_point timeLimit, double alpha, double beta, StateEvaluator& stateEval) {
     int stateWinner = state.winner();
     if (stateWinner != -1) {
-        if (stateWinner == state.GetCurrentPlayer()) { return stateEval.getUpperBound(); }
+        if (stateWinner == state.getCurrentPlayer()) { return stateEval.getUpperBound(); }
         else { return stateEval.getLowerBound(); }
     }
     if (std::chrono::steady_clock::now() > timeLimit) {
-        return stateEval.getLowerBound();
+        return 0; //Doesn't matter what we return because the results will be discarded
     }
     if (depthRemaining == 0) {
-        return stateEval.evaluate(state, state.GetCurrentPlayer());
+        return stateEval.evaluate(state, state.getCurrentPlayer());
     }
     std::vector<Move> moves;
     state.getMoves(moves);
@@ -70,75 +70,49 @@ Move firstNode(ChineseCheckersState& state, int depthRemaining, std::chrono::ste
         state.applyMove(mv);
         //std::cerr << "Move FROM " << moves[i].from << " TO " <<moves[i].to << " : " << minNode(state,depthRemaining - 1,startTime,timeLimit,alpha,beta,stateEval) << std::endl;
         //std::cerr << "Alpha: " << alpha << " BETA: " << beta << std::endl;
-        alpha = std::max(alpha,minNode(state,depthRemaining - 1,timeLimit,alpha,beta,stateEval));
+        double minNodeScore = minNode(state,depthRemaining - 1,timeLimit,alpha,beta,stateEval);
+        //alpha = std::max(alpha,minNodeScore);
         state.undoMove(mv);
-        if (alpha >= bestScore) {
-            
-            //std::cerr << mv << " score: " << alpha << std::endl;
-        }
-        if (alpha > bestScore) {
-            bestScore = alpha;
+        if (minNodeScore > bestScore) {
+            bestScore = minNodeScore;
             bestMoves.clear();
         }
-        if (alpha == bestScore) {
+        if (minNodeScore == bestScore) {
             bestMoves.push_back(mv);
         }
+        debug << "Depth " << depthRemaining << " Move from " << mv.from << " to " << mv.to << " : " << minNodeScore << std::endl;
         
         //std::cerr << "Alpha: " << alpha << " BETA: " << beta << std::endl;
-        if (alpha >= beta) { return *select_randomly(bestMoves.begin(),bestMoves.end()); }
+        if (alpha >= beta) { return *select_randomly(bestMoves.begin(), bestMoves.end()); }
     }
-    std::cerr << "Best Score: " << bestScore << std::endl;
-    return *select_randomly(bestMoves.begin(),bestMoves.end());
+    
+    return *select_randomly(bestMoves.begin(), bestMoves.end());
+}
+
+
+Move Agent::nextMove() { //Advances pieces based on distance to goal.
+    std::chrono::high_resolution_clock::time_point move_time = std::chrono::high_resolution_clock::now(); //Move_time is when we have received our turn
+    std::chrono::steady_clock::time_point timeLimit = move_time + std::chrono::milliseconds(9950);
+    Move currentMove = {0, 0};
+    Move lastMove = {0, 0};
+    int i = 0;
+    do {
+        ++i;
+        lastMove = currentMove;
+        currentMove = firstNode(state,i,timeLimit,stateEval->getLowerBound(),stateEval->getUpperBound(),*stateEval);
+        debug << "Depth " << i << " Move From: " << currentMove.from << " to " << currentMove.to << std::endl;
+    } while (std::chrono::steady_clock::now() < timeLimit);
+    return lastMove;
 }
 
 void Agent::setEvaluator(StateEvaluator* stateEval) {
     this->stateEval = stateEval;
 }
 
-Move Agent::nextMove() { //Advances pieces based on distance to goal.
-    std::chrono::high_resolution_clock::time_point move_time = std::chrono::high_resolution_clock::now(); //Move_time is when we have received our turn
-    std::chrono::steady_clock::time_point timeLimit = move_time + std::chrono::milliseconds(9950);
-    
-    
-    std::chrono::duration<double> timeSinceTurn;
-    Move currentMove;
-    Move lastMove;
-    int i = 0;
-    std::stringstream stmt;
-    do {
-        ++i;
-        
-        
-        lastMove = currentMove;
-        currentMove = firstNode(state,i,timeLimit,stateEval->getLowerBound(),stateEval->getUpperBound(),*stateEval);
-
-        
-        /*std::chrono::high_resolution_clock::time_point current_time = std::chrono::high_resolution_clock::now();
-        */
-        timeSinceTurn = std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::high_resolution_clock::now() - move_time);
-        if (std::chrono::steady_clock::now() < timeLimit) {
-            //stmt.clear();
-            //stmt.str("");
-            stmt << "Depth " << i << " Move From: " << currentMove.from << " to " << currentMove.to << " Completed in " << timeSinceTurn.count() << std::endl;
-        }
-    } while (std::chrono::steady_clock::now() < timeLimit);
-    std::cerr << stmt.str();
-    timeSinceTurn = std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::high_resolution_clock::now() - move_time);
-    //std::cerr << timeSinceTurn.count();
-    
-    return lastMove;
-}
-
 void Agent::playGame() {
   // Identify myself
   std::cout << "#name " << name << std::endl;
-    
-  while (false) {
-        const Move m = nextMove();
-      std::cout << "Move from " << m.from << " to " << m.to << std::endl;
-      state.applyMove(m);
-      
-    }
+
   // Wait for start of game
   waitForStart();
 
@@ -156,7 +130,6 @@ void Agent::playGame() {
 
       // Determine next move
       const Move m = nextMove();
-
       // Apply it locally
       state.applyMove(m);
 
@@ -165,6 +138,9 @@ void Agent::playGame() {
 
       // It is the opponents turn
       switchCurrentPlayer();
+        std::cerr << debug.str();
+        debug.clear();
+        debug.str("");
     } else {
       // Wait for move from other player
       // Get server's next instruction

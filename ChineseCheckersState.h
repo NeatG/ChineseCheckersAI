@@ -34,8 +34,9 @@ public:
   // dtor - default since we have nothing to clean up
   ~ChineseCheckersState() = default;
 
+  // Don't allow copies for simplicity (the functions below are for the rule of 5)
   // copy ctor
-  ChineseCheckersState(const ChineseCheckersState&);
+  ChineseCheckersState(const ChineseCheckersState&) = delete;
   // move ctor
   ChineseCheckersState(const ChineseCheckersState&&) = delete;
   // copy assignment
@@ -43,9 +44,10 @@ public:
   // move assignment
   ChineseCheckersState &operator=(const ChineseCheckersState&&) = delete;
 
-  // Put all valid moves into the vector of moves passed in by reference
-  void getMoves(std::vector<Move> &moves) const;
-
+    // Put all valid moves into the vector of moves passed in by reference for a given player
+    void getMoves(std::vector<Move> &moves,int forPlayer) const;
+    //Same as above but for the player whose turn it is to move
+    void getMoves(std::vector<Move> &moves) const;
   // Apply the move m, returning true if m is a valid move, false if not
   bool applyMove(Move m);
 
@@ -62,7 +64,7 @@ public:
   int winner() const;
 
     //Return the current player
-    int GetCurrentPlayer() const;
+    int getCurrentPlayer() const;
     
   // Reset the board to the initial state
   void reset();
@@ -75,6 +77,7 @@ public:
 
   // Translates a sequence of tokens from the move format used to the local move type
   Move translateToLocal(const std::vector<std::string> &tokens) const;
+    void swapTurn();
     
     std::array<int, 81> board;
 private:
@@ -89,36 +92,9 @@ private:
   //This method returns true if the move m exists in moves, false otherwise.
   //Currently it does a linear search to determine this.
   bool moveExists(std::vector<Move> &moves, Move m) const;
-  void swapTurn();
 
   bool player1Wins() const;
   bool player2Wins() const;
 };
-bool operator==(const ChineseCheckersState& lhs, const ChineseCheckersState& rhs);
-namespace std {
-    
-    template <>
-    struct hash<ChineseCheckersState>
-    {
-        std::size_t operator()(const ChineseCheckersState& k) const
-        {
-            using std::size_t;
-            using std::hash;
-            size_t seed = 0;
-            for (int i = 0;i < 81;++i) {
-                seed ^= std::hash<int>()(k.board[i]) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
-            }
-            return seed;
-            // Compute individual hash values for first,
-            // second and third and combine them using XOR
-            // and bit shifting:
-            
-            /*return ((hash<string>()(k.first)
-                     ^ (hash<string>()(k.second) << 1)) >> 1)
-            ^ (hash<int>()(k.third) << 1);*/
-        }
-    };
-    
-}
 
 #endif
