@@ -27,7 +27,7 @@ double DistanceStateEvaluator::evaluate(ChineseCheckersState &state, int forPlay
             }
         }
     }
-    std::vector<Move> moves;
+    /*std::vector<Move> moves;
     state.getMoves(moves);
     double moveScore = 0;
     int curPlayer = state.getCurrentPlayer();
@@ -72,7 +72,7 @@ double DistanceStateEvaluator::evaluate(ChineseCheckersState &state, int forPlay
         }
     }
     moveScore /= moves.size();
-    score += moveScore;
+    score += moveScore;*/
   //  score += bestMoveScore / 16;
     /*state.swapTurn();
     state.getMoves(moves);

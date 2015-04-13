@@ -32,7 +32,7 @@ public:
     Agent();
     void playGame();
     void setEvaluator(StateEvaluator*);
-
+    int getPlayerNumber() const;
 private:
     Move nextMove();
     void printAndRecvEcho(const std::string &msg) const;
@@ -49,12 +49,17 @@ private:
     enum Players { player1, player2 };
     Players current_player;
     Players my_player;
+    int myPlayerNumber;
     std::string name;
     std::string opp_name;
+    double pvs(ChineseCheckersState& state, int depthRemaining, std::chrono::steady_clock::time_point timeLimit, double alpha, double beta, StateEvaluator& stateEval, int color);
+
+    double minNode(ChineseCheckersState& state, int depthRemaining, std::chrono::steady_clock::time_point timeLimit, double alpha, double beta, StateEvaluator& stateEval);
+    double maxNode(ChineseCheckersState& state, int depthRemaining, std::chrono::steady_clock::time_point timeLimit, double alpha, double beta, StateEvaluator& stateEval);
+    double miniMax(ChineseCheckersState& state, int depthRemaining, std::chrono::steady_clock::time_point timeLimit, double alpha, double beta, StateEvaluator& stateEval, bool maximizing);
+    Move firstNode(ChineseCheckersState& state, int depthRemaining, std::chrono::steady_clock::time_point timeLimit, double alpha, double beta, StateEvaluator& stateEval);
 };
-double minNode(ChineseCheckersState& state, int depthRemaining, std::chrono::steady_clock::time_point timeLimit, double alpha, double beta, StateEvaluator& stateEval);
-double maxNode(ChineseCheckersState& state, int depthRemaining, std::chrono::steady_clock::time_point timeLimit, double alpha, double beta, StateEvaluator& stateEval);
-Move firstNode(ChineseCheckersState& state, int depthRemaining, std::chrono::steady_clock::time_point timeLimit, double alpha, double beta, StateEvaluator& stateEval);
+
 
 
 

@@ -76,7 +76,10 @@ public:
   std::string dumpState() const;
 
   // Translates a sequence of tokens from the move format used to the local move type
-  Move translateToLocal(const std::vector<std::string> &tokens) const;
+    Move translateToLocal(const std::vector<std::string> &tokens) const;
+    
+    uint64_t getHash() const;
+    
     void swapTurn();
     
     std::array<int, 81> board;
@@ -92,7 +95,7 @@ private:
   //This method returns true if the move m exists in moves, false otherwise.
   //Currently it does a linear search to determine this.
   bool moveExists(std::vector<Move> &moves, Move m) const;
-
+    uint64_t hash;
   bool player1Wins() const;
   bool player2Wins() const;
 };

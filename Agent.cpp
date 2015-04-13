@@ -9,11 +9,11 @@
 #include <cmath>
 
 #include <algorithm>
-#include "DistanceStateEvaluator.h"
+#include "TranspositionTable.h"
 
-Agent::Agent() : name("BestAI20150409-2") {
+Agent::Agent() : name("BestAI20150411") {
 }
-double minNode(ChineseCheckersState& state, int depthRemaining, std::chrono::steady_clock::time_point timeLimit, double alpha, double beta, StateEvaluator& stateEval) {
+double Agent::minNode(ChineseCheckersState& state, int depthRemaining, std::chrono::steady_clock::time_point timeLimit, double alpha, double beta, StateEvaluator& stateEval) {
     int stateWinner = state.winner();
     if (stateWinner != -1) {
         if (stateWinner == state.getCurrentPlayer()) { return stateEval.getLowerBound(); }
@@ -36,7 +36,7 @@ double minNode(ChineseCheckersState& state, int depthRemaining, std::chrono::ste
     return beta;
     
 }
-double maxNode(ChineseCheckersState& state, int depthRemaining, std::chrono::steady_clock::time_point timeLimit, double alpha, double beta, StateEvaluator& stateEval) {
+double Agent::maxNode(ChineseCheckersState& state, int depthRemaining, std::chrono::steady_clock::time_point timeLimit, double alpha, double beta, StateEvaluator& stateEval) {
     int stateWinner = state.winner();
     if (stateWinner != -1) {
         if (stateWinner == state.getCurrentPlayer()) { return stateEval.getUpperBound(); }
@@ -59,7 +59,89 @@ double maxNode(ChineseCheckersState& state, int depthRemaining, std::chrono::ste
     return alpha;
     
 }
-Move firstNode(ChineseCheckersState& state, int depthRemaining, std::chrono::steady_clock::time_point timeLimit, double alpha, double beta, StateEvaluator& stateEval) {
+double Agent::miniMax(ChineseCheckersState& state, int depthRemaining, std::chrono::steady_clock::time_point timeLimit, double alpha, double beta, StateEvaluator& stateEval, bool maximizing) {
+    int stateWinner = state.winner();
+    if (stateWinner != -1) {
+        if (stateWinner == myPlayerNumber) { return stateEval.getUpperBound() + depthRemaining; } //Adding the depth remaining is a hack to try to get the agent to finish the game if it sees a winning state
+        else { return stateEval.getLowerBound(); }
+    }
+    if (std::chrono::steady_clock::now() > timeLimit) {
+        return 0; //Doesn't matter what we return because the results will be discarded
+    }
+    if (depthRemaining == 0) {
+        return stateEval.evaluate(state, myPlayerNumber);
+    }
+    //Check the cache.
+    uint64_t hash = state.getHash();
+    TranspositionTableEntry* cacheEntry = &TranspositionTable[hash % TranspositionTableCacheSize];
+    if (cacheEntry->hash == hash && cacheEntry->depthRemaining >= depthRemaining && cacheEntry->value > alpha && cacheEntry->value < beta) {
+     //   debug << "Used a transposition table!" << std::endl;
+        return cacheEntry->value;
+    }
+    
+    std::vector<Move> moves;
+    state.getMoves(moves);
+    for (auto mv : moves) {
+        state.applyMove(mv);
+        double temp = miniMax(state,depthRemaining - 1,timeLimit,alpha,beta,stateEval,!maximizing);
+        if (maximizing) {
+            alpha = std::max(alpha,temp);
+        } else {
+            beta = std::min(beta,temp);
+        }
+        
+        state.undoMove(mv);
+        if (alpha >= beta) { break; }
+    }
+    cacheEntry->hash = hash;
+    cacheEntry->alpha = alpha;
+    cacheEntry->beta = beta;
+    cacheEntry->depthRemaining = depthRemaining;
+    
+    if (maximizing) {
+        cacheEntry->value = alpha;
+        return alpha;
+    }
+    cacheEntry->value = beta;
+    return beta;
+}
+//Implemented pseudocode from Wikipedia for Negascout
+double Agent::pvs(ChineseCheckersState& state, int depthRemaining, std::chrono::steady_clock::time_point timeLimit, double alpha, double beta, StateEvaluator& stateEval, int color) {
+    int stateWinner = state.winner();
+    if (stateWinner != -1) {
+        if (stateWinner == state.getCurrentPlayer() && color == -1) { return stateEval.getUpperBound(); }
+        else { return stateEval.getLowerBound(); }
+    }
+    if (std::chrono::steady_clock::now() > timeLimit) {
+        return 0; //Doesn't matter what we return because the results will be discarded
+    }
+    if (depthRemaining == 0) {
+
+        return color * stateEval.evaluate(state, myPlayerNumber);
+        
+    }
+    std::vector<Move> moves;
+    state.getMoves(moves);
+    size_t moveSize = moves.size();
+    double score;
+    for (int i = 0;i < moveSize;++i) {
+        state.applyMove(moves[i]);
+        if (i == 0) { //First child
+            score = -pvs(state,depthRemaining - 1, timeLimit, -beta, -alpha, stateEval, -color);
+        } else {
+            score = -pvs(state,depthRemaining - 1, timeLimit, -alpha-1, -alpha, stateEval, -color);
+            if (score > alpha && score < beta) {
+                score = score = -pvs(state,depthRemaining - 1, timeLimit, -beta, -score, stateEval, -color);
+            }
+        }
+        alpha = std::max(alpha,score);
+        state.undoMove(moves[i]);
+        if (alpha >= beta) { break; }
+    }
+    return alpha;
+}
+
+Move Agent::firstNode(ChineseCheckersState& state, int depthRemaining, std::chrono::steady_clock::time_point timeLimit, double alpha, double beta, StateEvaluator& stateEval) {
     std::vector<Move> moves;
     std::vector<Move> bestMoves;
     state.getMoves(moves);
@@ -70,7 +152,8 @@ Move firstNode(ChineseCheckersState& state, int depthRemaining, std::chrono::ste
         state.applyMove(mv);
         //std::cerr << "Move FROM " << moves[i].from << " TO " <<moves[i].to << " : " << minNode(state,depthRemaining - 1,startTime,timeLimit,alpha,beta,stateEval) << std::endl;
         //std::cerr << "Alpha: " << alpha << " BETA: " << beta << std::endl;
-        double minNodeScore = minNode(state,depthRemaining - 1,timeLimit,alpha,beta,stateEval);
+        //double minNodeScore = minNode(state,depthRemaining - 1,timeLimit,alpha,beta,stateEval);
+        double minNodeScore = miniMax(state,depthRemaining - 1,timeLimit,alpha,beta,stateEval,false);
         //alpha = std::max(alpha,minNodeScore);
         state.undoMove(mv);
         if (minNodeScore > bestScore) {
@@ -89,6 +172,10 @@ Move firstNode(ChineseCheckersState& state, int depthRemaining, std::chrono::ste
     return *select_randomly(bestMoves.begin(), bestMoves.end());
 }
 
+
+int Agent::getPlayerNumber() const {
+    return myPlayerNumber;
+}
 
 Move Agent::nextMove() { //Advances pieces based on distance to goal.
     std::chrono::high_resolution_clock::time_point move_time = std::chrono::high_resolution_clock::now(); //Move_time is when we have received our turn
@@ -111,6 +198,7 @@ void Agent::setEvaluator(StateEvaluator* stateEval) {
 
 void Agent::playGame() {
   // Identify myself
+    
   std::cout << "#name " << name << std::endl;
 
   // Wait for start of game
@@ -224,11 +312,15 @@ void Agent::waitForStart() {
         // We go first!
         opp_name = tokens[3];
         my_player = player1;
+          myPlayerNumber = 1;
+          std::cerr << "Player number set to " << myPlayerNumber << std::endl;
         break;
       } else if (tokens[3] == name) {
         // They go first
         opp_name = tokens[2];
         my_player = player2;
+          myPlayerNumber = 2;
+          std::cerr << "Player number set to " << myPlayerNumber << std::endl;
         break;
       } else {
         std::cerr << "Did not find '" << name

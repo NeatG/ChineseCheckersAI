@@ -9,7 +9,7 @@
 #include <string>
 #include <vector>
 #include <iostream>
-
+#include "ZobristHash.h"
 Move::operator std::string() const {
   std::stringstream ss;
   ss << "MOVE FROM " << from << " TO " << to;
@@ -52,6 +52,9 @@ void ChineseCheckersState::getMoves(std::vector<Move> &moves, int forPlayer) con
   }
 }
 
+uint64_t ChineseCheckersState::getHash() const {
+    return hash;
+}
 bool ChineseCheckersState::applyMove(Move m) {
   // Ensure the from and to are reasonable
   if (m.from > 80 || m.to > 80 || m.from == m.to)
@@ -65,8 +68,11 @@ bool ChineseCheckersState::applyMove(Move m) {
   /**/
 
   // Apply the move
-  std::swap(board[m.from], board[m.to]);
-
+    ZobristHash(*this, this->hash, m.from); //Hash out what was already applied
+    ZobristHash(*this, this->hash, m.to);
+    std::swap(board[m.from], board[m.to]);
+    ZobristHash(*this, this->hash, m.from);
+    ZobristHash(*this, this->hash, m.to); //Hash in the new position
   // Update whose turn it is
   swapTurn();
 
@@ -79,17 +85,23 @@ bool ChineseCheckersState::undoMove(Move m) {
     return false;
 
   // Undo the move
-  std::swap(board[m.from], board[m.to]);
-  swapTurn();
+    ZobristHash(*this, this->hash, m.from); //Hash out what was already applied
+    ZobristHash(*this, this->hash, m.to);
+
+    std::swap(board[m.from], board[m.to]);
+    ZobristHash(*this, this->hash, m.from);
+    ZobristHash(*this, this->hash, m.to); //Hash in the new position
+
+    swapTurn();
 
   // Check the move is valid from this state that is back one step
-  if (!isValidMove(m)) {
+  /*if (!isValidMove(m)) {
     // Woops, it was not valid, undo our changes
     swapTurn();
     std::swap(board[m.from], board[m.to]);
 
     return false;
-  }
+  }*/
 
   return true;
 }
@@ -112,12 +124,12 @@ int ChineseCheckersState::winner() const {
 }
 
 void ChineseCheckersState::reset() {
-  board = {{1, 1, 1, 1, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0,
+    board = {{1, 1, 1, 1, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0,
             0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 2, 2, 0, 0, 0,
             0, 0, 0, 2, 2, 2, 0, 0, 0, 0, 0, 2, 2, 2, 2}};
-  currentPlayer = 1;
-
+    currentPlayer = 1;
+    hash = ZobristHash(*this);
 }
 
 bool ChineseCheckersState::loadState(const std::string &newState) {
@@ -306,7 +318,9 @@ Move ChineseCheckersState::translateToLocal(const std::vector<std::string> &toke
 }
 
 void ChineseCheckersState::swapTurn() {
-  currentPlayer = 3 - currentPlayer;
+    hash ^= zhash[currentPlayer][81]; //Hash out current player
+    currentPlayer = 3 - currentPlayer;
+    hash ^= zhash[currentPlayer][81]; //Hash in next player
 }
 
 bool ChineseCheckersState::player1Wins() const {
