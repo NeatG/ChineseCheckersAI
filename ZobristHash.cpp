@@ -19,7 +19,8 @@ uint64_t ZobristHash(ChineseCheckersState& state)
     {
         toReturn = toReturn ^ zhash[state.board[i]][i];
     }
-    toReturn ^= zhash[state.getCurrentPlayer()][81];
+    //Uncomment this to allow the player turn to be a part of the hash
+    //toReturn ^= zhash[state.getCurrentPlayer()][81];
     return toReturn;
 }
 void ZobristHash(ChineseCheckersState& state, uint64_t& current, size_t index)

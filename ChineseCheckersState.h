@@ -16,10 +16,10 @@
 #include <vector>
 class StateEvaluator;
 struct Move {
-  unsigned from;
-  unsigned to;
-
-  operator std::string() const; //conversion operator
+    unsigned from;
+    unsigned to;
+    operator uint32_t() const;
+    operator std::string() const; //conversion operator
 };
 bool operator==(const Move &lhs, const Move &rhs);
 bool operator<(const Move &lhs, const Move &rhs);

@@ -10,24 +10,23 @@
 #include <chrono>
 #include  <random>
 #include  <iterator>
-//Code from http://stackoverflow.com/questions/6942273/get-random-element-from-container-c-stl
-template<typename Iter, typename RandomGenerator>
-Iter select_randomly(Iter start, Iter end, RandomGenerator& g) {
-    std::uniform_int_distribution<> dis(0, std::distance(start, end) - 1);
-    std::advance(start, dis(g));
-    return start;
-}
+#include <unordered_map>
 
-template<typename Iter>
-Iter select_randomly(Iter start, Iter end) {
-    static std::random_device rd;
-    static std::mt19937 gen(rd());
-    return select_randomly(start, end, gen);
-}
 
-extern std::stringstream debug;
+
+extern std::stringstream debugStream;
+
+extern bool debugFlag;
+
+
+struct moveOrderingSort {
+    bool operator()( const Move &lhs, const Move &rhs) const;
+};
+// This map stores our scores for various moves. The move is turned into a uint32_t by bit shifting, since it takes at most 7 bits to store one location it takes 14 bits to store both.
+extern std::unordered_map<uint32_t,double> moveOrdering;
 
 class Agent {
+    friend void TestTranspositionTable();
 public:
     Agent();
     void playGame();
@@ -43,7 +42,7 @@ private:
     StateEvaluator* stateEval;
     bool isValidStartGameMessage(const std::vector<std::string> &tokens) const;
     bool isValidMoveMessage(const std::vector<std::string> &tokens) const;
-
+ 
 
     ChineseCheckersState state;
     enum Players { player1, player2 };
@@ -52,12 +51,8 @@ private:
     int myPlayerNumber;
     std::string name;
     std::string opp_name;
-    double pvs(ChineseCheckersState& state, int depthRemaining, std::chrono::steady_clock::time_point timeLimit, double alpha, double beta, StateEvaluator& stateEval, int color);
-
-    double minNode(ChineseCheckersState& state, int depthRemaining, std::chrono::steady_clock::time_point timeLimit, double alpha, double beta, StateEvaluator& stateEval);
-    double maxNode(ChineseCheckersState& state, int depthRemaining, std::chrono::steady_clock::time_point timeLimit, double alpha, double beta, StateEvaluator& stateEval);
     double miniMax(ChineseCheckersState& state, int depthRemaining, std::chrono::steady_clock::time_point timeLimit, double alpha, double beta, StateEvaluator& stateEval, bool maximizing);
-    Move firstNode(ChineseCheckersState& state, int depthRemaining, std::chrono::steady_clock::time_point timeLimit, double alpha, double beta, StateEvaluator& stateEval);
+    std::pair<Move,double> firstNode(ChineseCheckersState& state, int depthRemaining, std::chrono::steady_clock::time_point timeLimit, double alpha, double beta, StateEvaluator& stateEval);
 };
 
 

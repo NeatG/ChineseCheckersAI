@@ -25,6 +25,7 @@ struct TranspositionTableEntry {
 //Set the hash to 0 for all cache entries, marking it as invalid.
 void TranspositionTableSetup();
 
+void TestTranspositionTable();
 
 extern TranspositionTableEntry TranspositionTable[TranspositionTableCacheSize];
 

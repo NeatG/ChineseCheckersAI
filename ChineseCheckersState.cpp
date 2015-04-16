@@ -15,6 +15,12 @@ Move::operator std::string() const {
   ss << "MOVE FROM " << from << " TO " << to;
   return ss.str();
 }
+Move::operator uint32_t() const {
+    uint32_t moveRepresentation = from;
+    moveRepresentation <<= 7; //It takes 7 bits (potentially) to store 81 values
+    moveRepresentation |= to;
+    return moveRepresentation;
+}
 
 bool operator==(const Move &lhs, const Move &rhs) {
   return lhs.from == rhs.from && lhs.to == rhs.to;
@@ -41,15 +47,26 @@ void ChineseCheckersState::getMoves(std::vector<Move> &moves) const {
 
 void ChineseCheckersState::getMoves(std::vector<Move> &moves, int forPlayer) const {
   // WARNING: This function must not return duplicate moves
-  moves.clear();
+    moves.clear();
     moves.reserve(100);
-  for (unsigned i = 0; i < 81; ++i) {
-    if (board[i] == forPlayer) {
-      getMovesSingleStep(moves, i);
-      // Need to add jump moves
-	  getMovesJumpStep(moves, i, i);
+    for (unsigned i = 0; i < 81; ++i) {
+        if (board[i] == forPlayer) {
+            getMovesSingleStep(moves, i);
+            getMovesJumpStep(moves, i, i);
+        }
     }
-  }
+    //inspired by http://stackoverflow.com/questions/4478636/stdremove-if-lambda-not-removing-anything-from-the-collection
+    //Remove moves which would cause you to go back by a row or more.
+    for (auto iter = moves.begin(); iter != moves.end(); ) {
+        int difference = (*iter).to - (*iter).from;
+        
+        if ((forPlayer == 1 && difference < -8) || (forPlayer == 2 && difference > 8)) {
+            moves.erase(iter);
+        } else {
+            ++iter;
+        }
+            
+    }
 }
 
 uint64_t ChineseCheckersState::getHash() const {
@@ -318,9 +335,11 @@ Move ChineseCheckersState::translateToLocal(const std::vector<std::string> &toke
 }
 
 void ChineseCheckersState::swapTurn() {
-    hash ^= zhash[currentPlayer][81]; //Hash out current player
+    
+    //Uncomment these to allow the player turn to be a part of hte hash.
+    //hash ^= zhash[currentPlayer][81]; //Hash out current player
     currentPlayer = 3 - currentPlayer;
-    hash ^= zhash[currentPlayer][81]; //Hash in next player
+    //hash ^= zhash[currentPlayer][81]; //Hash in next player
 }
 
 bool ChineseCheckersState::player1Wins() const {

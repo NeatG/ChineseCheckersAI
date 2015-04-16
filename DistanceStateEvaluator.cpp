@@ -10,24 +10,43 @@
 DistanceStateEvaluator::DistanceStateEvaluator() {}
 double DistanceStateEvaluator::evaluate(ChineseCheckersState &state, int forPlayer, bool repeat) {
     double score = 0;
+    double distScore = 0;
     for (int i = 0;i < 81;++i) {
         int thisRow = i / 9;
         int thisCol = i % 9;
         if (state.board[i] == forPlayer) {
             if (forPlayer == 1) {
-                score += thisRow + thisCol;
+                distScore += thisRow + thisCol;
             } else { //Player 2
-                score += ((8 - thisRow) + (8 - thisCol));
+                distScore += ((8 - thisRow) + (8 - thisCol));
             }
         } else if (state.board[i] == 3 - forPlayer) {
             if (forPlayer == 1) {
-                score -= ((8 - thisRow) + (8 - thisCol));
+                distScore -= ((8 - thisRow) + (8 - thisCol));
             } else {
-                score -= thisRow + thisCol;
+                distScore -= thisRow + thisCol;
             }
         }
     }
-    /*std::vector<Move> moves;
+    double goalScore = 0;
+    //Player 1 goal
+    for (const auto i : {53u, 61u, 62u, 69u, 70u, 71u, 77u, 78u, 79u, 80u}) {
+        if (state.board[i] == 1 && forPlayer == 1) {
+            ++goalScore;
+        } else if (state.board[i] == 2 && forPlayer == 2) {
+            --goalScore;
+        }
+    }
+    //Player 2 goal
+    for (const auto i : {0u, 1u, 2u, 3u, 9u, 10u, 11u, 18u, 19u, 27u}) {
+        if (state.board[i] == 2 && forPlayer == 2) {
+            ++goalScore;
+        } else if (state.board[i] == 1 && forPlayer == 1) {
+            --goalScore;
+        }
+    }
+    
+    std::vector<Move> moves;
     state.getMoves(moves);
     double moveScore = 0;
     int curPlayer = state.getCurrentPlayer();
@@ -48,9 +67,7 @@ double DistanceStateEvaluator::evaluate(ChineseCheckersState &state, int forPlay
             }
         }
     }
-    moveScore /= moves.size();
-    score += moveScore;
-    moveScore = 0;
+    //moveScore /= moves.size();
     
     curPlayer = 3 - curPlayer;
     state.getMoves(moves,curPlayer);
@@ -71,30 +88,8 @@ double DistanceStateEvaluator::evaluate(ChineseCheckersState &state, int forPlay
             }
         }
     }
-    moveScore /= moves.size();
-    score += moveScore;*/
-  //  score += bestMoveScore / 16;
-    /*state.swapTurn();
-    state.getMoves(moves);
-    curPlayer = state.getCurrentPlayer();
-    for (auto mv : moves) {
-        int toRow = mv.to / 9;
-        int toCol = mv.to % 9;
-        if (curPlayer == forPlayer) {
-            if (forPlayer == 1) {
-                score += toRow + toCol;
-            } else { //Player 2
-                score += (8 - toRow) + (8 - toCol);
-            }
-        } else if (curPlayer == 3 - forPlayer) {
-            if (forPlayer == 1) {
-                score -= ((8 - toRow) + (8 - toCol));
-            } else {
-                score -= toRow + toCol;
-            }
-        }
-    }
-    state.swapTurn();*/
+ //   moveScore /= moves.size();
+    score = (1 * distScore) + (100 * goalScore) + (1 * moveScore);
     return score;
 }
 

@@ -9,7 +9,10 @@
 #include "ZobristHash.h"
 #include "TranspositionTable.h"
 
-std::stringstream debug;
+
+bool debugFlag = false;
+
+std::stringstream debugStream;
 
 int main(int /*argc*/, char **/*argv*/) {
     ZobristHashSetup();
