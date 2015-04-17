@@ -26,7 +26,6 @@ struct moveOrderingSort {
 extern std::unordered_map<uint32_t,double> moveOrdering;
 
 class Agent {
-    friend void TestTranspositionTable();
 public:
     Agent();
     void playGame();
@@ -51,6 +50,8 @@ private:
     int myPlayerNumber;
     std::string name;
     std::string opp_name;
+    //Overloaded minimax that does not check transposition tables or use alpha beta
+    double miniMax(ChineseCheckersState& state, int depthRemaining, StateEvaluator& stateEval, bool maximizing);
     double miniMax(ChineseCheckersState& state, int depthRemaining, std::chrono::steady_clock::time_point timeLimit, double alpha, double beta, StateEvaluator& stateEval, bool maximizing);
     std::pair<Move,double> firstNode(ChineseCheckersState& state, int depthRemaining, std::chrono::steady_clock::time_point timeLimit, double alpha, double beta, StateEvaluator& stateEval);
 };

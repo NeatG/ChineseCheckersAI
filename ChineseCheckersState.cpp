@@ -9,14 +9,20 @@
 #include <string>
 #include <vector>
 #include <iostream>
+#include <cstdint>
+#include <unordered_map>
 #include "ZobristHash.h"
+#include "Agent.h"
+
+extern std::unordered_map<uint32_t,double> moveOrdering;
+
 Move::operator std::string() const {
   std::stringstream ss;
   ss << "MOVE FROM " << from << " TO " << to;
   return ss.str();
 }
 Move::operator uint32_t() const {
-    uint32_t moveRepresentation = from;
+    uint32_t moveRepresentation = static_cast<uint32_t>(from);
     moveRepresentation <<= 7; //It takes 7 bits (potentially) to store 81 values
     moveRepresentation |= to;
     return moveRepresentation;
@@ -55,6 +61,7 @@ void ChineseCheckersState::getMoves(std::vector<Move> &moves, int forPlayer) con
             getMovesJumpStep(moves, i, i);
         }
     }
+    std::sort(moves.begin(),moves.end(),moveOrderingSort());
     //inspired by http://stackoverflow.com/questions/4478636/stdremove-if-lambda-not-removing-anything-from-the-collection
     //Remove moves which would cause you to go back by a row or more.
     for (auto iter = moves.begin(); iter != moves.end(); ) {
@@ -65,8 +72,22 @@ void ChineseCheckersState::getMoves(std::vector<Move> &moves, int forPlayer) con
         } else {
             ++iter;
         }
-            
     }
+    
+    /*size_t moveSize = moves.size();
+    double greatestMoveOrder = 0;
+    int greatestIndex = 0;
+    for (int i = 0;i < moveSize;++i) {
+        uint32_t moveRepresentation = moves[i];
+        if (moveOrdering.find(moveRepresentation) != moveOrdering.end()) {
+            if (moveOrdering[moveRepresentation] > greatestMoveOrder) {
+                greatestIndex = i;
+            }
+        }
+    }
+    if (greatestIndex > 0) {
+        std::swap(moves[0],moves[greatestIndex]);
+    }*/
 }
 
 uint64_t ChineseCheckersState::getHash() const {

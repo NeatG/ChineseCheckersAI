@@ -14,6 +14,8 @@
 
 Agent::Agent() : name("BestAI20150415") {
 }
+// Stores scores for our move ordering.
+// Uncomment for move ordering.
 
 std::unordered_map<uint32_t,double> moveOrdering;
 bool moveOrderingSort::operator()( const Move &lhs, const Move &rhs) const {
@@ -29,9 +31,39 @@ bool moveOrderingSort::operator()( const Move &lhs, const Move &rhs) const {
     }
     if (lhsScore > rhsScore) { return true; }
     if (rhsScore > lhsScore) { return false; }
-    return rand() % 2;
+    return rhs < lhs;
     
 }
+//This is an overload of the real function we're using that does not use alpha beta or check transposition tables.
+double Agent::miniMax(ChineseCheckersState& state, int depthRemaining, StateEvaluator& stateEval, bool maximizing) {
+    int stateWinner = state.winner();
+    if (stateWinner != -1) {
+        if (stateWinner == myPlayerNumber) { return stateEval.getUpperBound() + depthRemaining; } //Adding the depth remaining is a hack to try to get the agent to finish the game if it sees a winning state
+        else { return stateEval.getLowerBound() + stateEval.evaluate(state, myPlayerNumber); }
+    }
+    if (depthRemaining == 0) {
+        return stateEval.evaluate(state, myPlayerNumber);
+    }
+    double result;
+    if (maximizing) { result = stateEval.getLowerBound(); }
+    else { result = stateEval.getUpperBound(); }
+    
+    std::vector<Move> moves;
+    state.getMoves(moves);
+    //std::sort(moves.begin(),moves.end(),moveOrderingSort());
+    for (auto mv : moves) {
+        state.applyMove(mv);
+        double temp = miniMax(state,depthRemaining - 1,stateEval,!maximizing);
+        if (maximizing) {
+            result = std::max(result,temp);
+        } else {
+            result = std::min(result,temp);
+        }
+        state.undoMove(mv);
+    }
+    return result;
+}
+
 
 double Agent::miniMax(ChineseCheckersState& state, int depthRemaining, std::chrono::steady_clock::time_point timeLimit, double alpha, double beta, StateEvaluator& stateEval, bool maximizing) {
     int stateWinner = state.winner();
@@ -113,13 +145,11 @@ double Agent::miniMax(ChineseCheckersState& state, int depthRemaining, std::chro
                 debugStream << "Transposition table returned incorrect value (beta)!" << std::endl;
             }
         }
-
     }
     cacheEntry->hash = hash;
     cacheEntry->alpha = alpha;
     cacheEntry->beta = beta;
     cacheEntry->depthRemaining = depthRemaining;
-    
     if (maximizing) {
         cacheEntry->value = alpha;
         return alpha;
@@ -134,30 +164,61 @@ std::pair<Move,double> Agent::firstNode(ChineseCheckersState& state, int depthRe
     std::vector<Move> betterMoves;
     retVal.second = alpha - 1;
     //std::cerr << "Best Score: " << bestScore << std::endl;
-    std::sort(moves.begin(),moves.end(),moveOrderingSort());
+    
+    //std::sort(moves.begin(),moves.end(),moveOrderingSort());
     for (auto mv : moves) {
         state.applyMove(mv);
-        /*if (mv == *moves.begin()) {
-            
-        }*/
-        double minNodeScore = miniMax(state,depthRemaining - 1,timeLimit,alpha,beta,stateEval,false);
-        alpha = std::max(alpha,minNodeScore);
-        state.undoMove(mv);
-        if (minNodeScore > retVal.second) {
+        if (mv == *moves.begin()) { //If the move is the first move we do a full window search
+            double minNodeScore = miniMax(state,depthRemaining - 1,timeLimit,alpha,beta,stateEval,false);
+            if (debugFlag) {
+                //Test our value against a basic minimax implementation
+                double miniMaxResult = miniMax(state, depthRemaining - 1, stateEval, false);
+                if (minNodeScore != std::min(beta,miniMaxResult)) {
+                    debugStream << "Alpha Beta Error!" << std::endl;
+                }
+            }
+            alpha = std::max(alpha,minNodeScore);
             retVal.second = minNodeScore;
             retVal.first = mv;
+        } else { //Otherwise we do a null window search
+            double minNodeScore = miniMax(state,depthRemaining - 1,timeLimit,alpha-0.1,alpha+0.1,stateEval,false);
+            if (minNodeScore > alpha) {
+                betterMoves.push_back(mv);
+            }
         }
         
-        debugStream << "Depth " << depthRemaining << " Move from " << mv.from << " to " << mv.to << " : " << minNodeScore << std::endl;
+        state.undoMove(mv);
+
+        
+        //debugStream << "Depth " << depthRemaining << " Move from " << mv.from << " to " << mv.to << " : " << minNodeScore << std::endl;
         
         //std::cerr << "Alpha: " << alpha << " BETA: " << beta << std::endl;
         if (alpha >= beta) { break; }
     }
+    size_t betterMovesSize = betterMoves.size();
+    debugStream << betterMovesSize << " better moves out of " << moves.size() << " total moves." << std::endl;
+    if (betterMovesSize > 0) {
+        if (betterMovesSize == 1) {
+            //There is only one better move than the first move so return it
+            retVal.first = betterMoves[0];
+            retVal.second = alpha + 0.1;
+        } else {
+            //If we have more than one then we have to do a full window search on a hopefully condensed list
+            for (auto mv : betterMoves) {
+                state.applyMove(mv);
+                double minNodeScore = miniMax(state,depthRemaining - 1,timeLimit,alpha,beta,stateEval,false);
+                alpha = std::max(alpha,minNodeScore);
+                if (minNodeScore > retVal.second) {
+                    retVal.first = mv;
+                    retVal.second = minNodeScore;
+                }
+                state.undoMove(mv);
+            }
+        }
+    }
     if (std::chrono::steady_clock::now() < timeLimit) {
         //If we're still within time record this move as the best for move ordering
-        /*uint32_t moveRepresentation = retVal.first.from;
-        moveRepresentation <<= 7;
-        moveRepresentation |= retVal.first.to;*/
+
         uint32_t moveRepresentation = uint32_t(retVal.first);
         if (moveOrdering.find(moveRepresentation) == moveOrdering.end()) {
             moveOrdering[moveRepresentation] = 0;

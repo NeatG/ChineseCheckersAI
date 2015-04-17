@@ -89,7 +89,7 @@ double DistanceStateEvaluator::evaluate(ChineseCheckersState &state, int forPlay
         }
     }
  //   moveScore /= moves.size();
-    score = (1 * distScore) + (100 * goalScore) + (1 * moveScore);
+    score = (1 * distScore) + (100 * goalScore) + (0 * moveScore);
     return score;
 }
 
