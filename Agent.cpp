@@ -48,6 +48,7 @@ double Agent::miniMax(ChineseCheckersState& state, int depthRemaining, StateEval
     
     std::vector<Move> moves;
     state.getMoves(moves);
+
     //std::sort(moves.begin(),moves.end(),moveOrderingSort());
     for (auto mv : moves) {
         state.applyMove(mv);
@@ -119,21 +120,32 @@ double Agent::miniMax(ChineseCheckersState& state, int depthRemaining, std::chro
     std::vector<Move> moves;
     state.getMoves(moves);
     std::sort(moves.begin(),moves.end(),moveOrderingSort());
+    Move bestMove = {0,0};
     for (auto mv : moves) {
         state.applyMove(mv);
         double temp = miniMax(state,depthRemaining - 1,timeLimit,alpha,beta,stateEval,!maximizing);
         if (maximizing) {
-            alpha = std::max(alpha,temp);
+            if (temp > alpha) {
+                alpha = temp;
+                bestMove = mv;
+            }
+            //alpha = std::max(alpha,temp);
         } else {
-            beta = std::min(beta,temp);
+            if (temp < beta) {
+                beta = temp;
+                bestMove = mv;
+            }
+            //beta = std::min(beta,temp);
         }
         
         state.undoMove(mv);
         if (alpha >= beta) {
-            uint32_t moveRepresentation = uint32_t(mv);
-            moveOrdering[moveRepresentation] += pow(2,depthRemaining);
             break;
         }
+    }
+    if (bestMove != Move{0,0}) {
+        uint32_t moveRepresentation = uint32_t(bestMove);
+        moveOrdering[moveRepresentation] += pow(2,depthRemaining);
     }
     if (debugFlag && cacheEntry->hash == hash && cacheEntry->depthRemaining >= depthRemaining) {
         bool returnBoundedVal = false;

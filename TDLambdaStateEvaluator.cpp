@@ -56,31 +56,40 @@ void TDLambdaStateEvaluator::train(int numTrains) {
     // load into td
     //tdmm.GetEval().SetWeights(tdr.GetWeights());
     // print for ourselves
-    fprintf(stderr, "Our weights:\n");
-    for (int x = 0; x < 9; x++)
-    {
-        for (int y = 0; y < 9; y++)
-        {
-            fprintf(stderr, "%1.3f ", r.GetWeights()[x+y*9]);
+    std::cerr << "Weights: {";
+    int size = r.GetWeights().size();
+    for (int i = 0;i < size; ++i) {
+        std::cerr << r.GetWeights()[i];
+        if (i < size - 1) {
+            std::cerr << ", ";
         }
-        fprintf(stderr, "\n");
     }
-    
-    fprintf(stderr, "Opponent weights:\n");
-    for (int x = 0; x < 9; x++)
-    {
-        for (int y = 0; y < 9; y++)
-        {
-            fprintf(stderr, "%1.3f ", r.GetWeights()[81+x+y*9]);
-        }
-        fprintf(stderr, "\n");
-    }
-    fprintf(stderr, "Piece weights:\n");
-    for (int x = 0; x < 420; x++)
-    {
-        
-        fprintf(stderr, "%1.3f ", r.GetWeights()[162+x]);
-    }
+    std::cerr << "}" << std::endl;
+//    fprintf(stderr, "Our weights:\n");
+//    for (int x = 0; x < 9; x++)
+//    {
+//        for (int y = 0; y < 9; y++)
+//        {
+//            fprintf(stderr, "%1.3f ", r.GetWeights()[x+y*9]);
+//        }
+//        fprintf(stderr, "\n");
+//    }
+//    
+//    fprintf(stderr, "Opponent weights:\n");
+//    for (int x = 0; x < 9; x++)
+//    {
+//        for (int y = 0; y < 9; y++)
+//        {
+//            fprintf(stderr, "%1.3f ", r.GetWeights()[81+x+y*9]);
+//        }
+//        fprintf(stderr, "\n");
+//    }
+//    fprintf(stderr, "Piece weights:\n");
+//    for (int x = 0; x < 420; x++)
+//    {
+//        
+//        fprintf(stderr, "%1.3f ", r.GetWeights()[162+x]);
+//    }
 } //Train the evaluator with
 
 // Returns the best move (1-ply) for the purposes of training
@@ -261,6 +270,7 @@ void TDLambdaStateEvaluator::getFeatures(const ChineseCheckersState &s, std::vec
         }
     }
 }
-void TDLambdaStateEvaluator::setWeights(std::vector<double>) { //Import saved weights
+void TDLambdaStateEvaluator::setWeights(std::vector<double> weights) { //Import saved weights
+    r.SetWeights(weights);
     
 }
