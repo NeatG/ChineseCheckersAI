@@ -49,7 +49,7 @@ double DistanceStateEvaluator::evaluate(ChineseCheckersState &state, int forPlay
     std::vector<Move> moves;
     state.getMoves(moves);
     double moveScore = 0;
-    int curPlayer = state.getCurrentPlayer();
+    int curPlayer = state.currentPlayer;
     for (auto mv : moves) {
         double toRow = mv.to / 9;
         double toCol = mv.to % 9;

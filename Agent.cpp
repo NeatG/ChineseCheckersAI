@@ -12,23 +12,21 @@
 #include "TranspositionTable.h"
 
 
-Agent::Agent() : name("BestAI20150415") {
+Agent::Agent() : name("BestAI20150426") {
+    for (int i = 0;i < 32767;++i) {
+        moveOrdering[i] = 0;
+    }
 }
 // Stores scores for our move ordering.
 // Uncomment for move ordering.
 
-std::unordered_map<uint32_t,double> moveOrdering;
+double moveOrdering[32767]; //It takes 7 bits to represent the from/to of a move, so it takes 14 bits to represent them both which can represent 2^15-1 values
 bool moveOrderingSort::operator()( const Move &lhs, const Move &rhs) const {
     uint32_t lhsMoveRepresentation = uint32_t(lhs);
     uint32_t rhsMoveRepresentation = uint32_t(rhs);
-    double lhsScore = 0;
-    double rhsScore = 0;
-    if (moveOrdering.find(lhsMoveRepresentation) != moveOrdering.end()) {
-        lhsScore = moveOrdering[lhsMoveRepresentation];
-    }
-    if (moveOrdering.find(rhsMoveRepresentation) != moveOrdering.end()) {
-        rhsScore = moveOrdering[rhsMoveRepresentation];
-    }
+    double lhsScore = moveOrdering[lhsMoveRepresentation];
+    double rhsScore = moveOrdering[rhsMoveRepresentation];
+
     if (lhsScore > rhsScore) { return true; }
     if (rhsScore > lhsScore) { return false; }
     return rhs < lhs;
@@ -71,6 +69,7 @@ double Agent::miniMax(ChineseCheckersState& state, int depthRemaining, std::chro
         if (stateWinner == myPlayerNumber) { return stateEval.getUpperBound() + depthRemaining; } //Adding the depth remaining is a hack to try to get the agent to finish the game if it sees a winning state
         else { return stateEval.getLowerBound() + stateEval.evaluate(state, myPlayerNumber); }
     }
+    
     if (std::chrono::steady_clock::now() > timeLimit) {
         return 0; //Doesn't matter what we return because the results will be discarded
     }
@@ -79,6 +78,14 @@ double Agent::miniMax(ChineseCheckersState& state, int depthRemaining, std::chro
     }
     //Check the cache.
     uint64_t hash = state.getHash();
+    if (visitedStates.find(hash) != visitedStates.end()) {
+        //If we repeat hte state it's a loss for the player playing.
+        if (stateWinner == myPlayerNumber) {
+            return stateEval.getLowerBound();
+        } else { //If our opponent takes a repeat move it's a win for us.
+            return stateEval.getUpperBound();
+        }
+    }
     TranspositionTableEntry* cacheEntry = &TranspositionTable[hash % TranspositionTableCacheSize];
     if (!debugFlag && cacheEntry->hash == hash && cacheEntry->depthRemaining >= depthRemaining) { //Cache hit!
         bool returnBoundedVal = false;
@@ -111,7 +118,7 @@ double Agent::miniMax(ChineseCheckersState& state, int depthRemaining, std::chro
     
     std::vector<Move> moves;
     state.getMoves(moves);
-    //std::sort(moves.begin(),moves.end(),moveOrderingSort());
+    std::sort(moves.begin(),moves.end(),moveOrderingSort());
     for (auto mv : moves) {
         state.applyMove(mv);
         double temp = miniMax(state,depthRemaining - 1,timeLimit,alpha,beta,stateEval,!maximizing);
@@ -122,7 +129,11 @@ double Agent::miniMax(ChineseCheckersState& state, int depthRemaining, std::chro
         }
         
         state.undoMove(mv);
-        if (alpha >= beta) { break; }
+        if (alpha >= beta) {
+            uint32_t moveRepresentation = uint32_t(mv);
+            moveOrdering[moveRepresentation] += pow(2,depthRemaining);
+            break;
+        }
     }
     if (debugFlag && cacheEntry->hash == hash && cacheEntry->depthRemaining >= depthRemaining) {
         bool returnBoundedVal = false;
@@ -165,7 +176,7 @@ std::pair<Move,double> Agent::firstNode(ChineseCheckersState& state, int depthRe
     retVal.second = alpha - 1;
     //std::cerr << "Best Score: " << bestScore << std::endl;
     
-    //std::sort(moves.begin(),moves.end(),moveOrderingSort());
+    std::sort(moves.begin(),moves.end(),moveOrderingSort());
     for (auto mv : moves) {
         state.applyMove(mv);
         if (mv == *moves.begin()) { //If the move is the first move we do a full window search
@@ -220,9 +231,6 @@ std::pair<Move,double> Agent::firstNode(ChineseCheckersState& state, int depthRe
         //If we're still within time record this move as the best for move ordering
 
         uint32_t moveRepresentation = uint32_t(retVal.first);
-        if (moveOrdering.find(moveRepresentation) == moveOrdering.end()) {
-            moveOrdering[moveRepresentation] = 0;
-        }
         moveOrdering[moveRepresentation] += pow(2,depthRemaining);
     }
     return retVal;
@@ -248,7 +256,12 @@ Move Agent::nextMove() { //Advances pieces based on distance to goal.
         if (moveScore.second >= stateEval->getUpperBound()) { break; } // we won!
         moveScore = firstNode(state,i,timeLimit,stateEval->getLowerBound(),stateEval->getUpperBound(),*stateEval);
         currentMove = moveScore.first;
-        debugStream << "Depth " << i << " Move From: " << currentMove.from << " to " << currentMove.to << std::endl;
+        if (std::chrono::steady_clock::now() < timeLimit) {
+            debugStream.clear();
+            debugStream.str("");
+            debugStream << "Depth " << i << " Move From: " << currentMove.from << " to " << currentMove.to << " took " << std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - move_time).count() << "s" << std::endl;
+            
+        }
         
     } while (std::chrono::steady_clock::now() < timeLimit);
     return lastMove;
@@ -262,7 +275,14 @@ void Agent::playGame() {
   // Identify myself
     
   std::cout << "#name " << name << std::endl;
-
+    while (false) {
+        const Move m = nextMove();
+        // Apply it locally
+        state.applyMove(m);
+        std::cerr << debugStream.str(); //Print our debug stream _after_ we submit the move so it's not counted against our time
+        debugStream.clear();
+        debugStream.str("");
+    }
   // Wait for start of game
   waitForStart();
 
@@ -282,7 +302,7 @@ void Agent::playGame() {
       const Move m = nextMove();
       // Apply it locally
       state.applyMove(m);
-
+        visitedStates.insert(state.getHash());
       // Tell the world
       printAndRecvEcho(m);
 
@@ -301,7 +321,7 @@ void Agent::playGame() {
         // Translate to local coordinates and update our local state
         const Move m = state.translateToLocal(tokens);
         state.applyMove(m);
-
+          visitedStates.insert(state.getHash());
         // It is now my turn
         switchCurrentPlayer();
       } else if (tokens.size() == 4 && tokens[0] == "FINAL" &&

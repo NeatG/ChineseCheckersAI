@@ -14,44 +14,27 @@
 #include "ZobristHash.h"
 #include "Agent.h"
 
-extern std::unordered_map<uint32_t,double> moveOrdering;
+extern double moveOrdering[32767];
 
-Move::operator std::string() const {
-  std::stringstream ss;
-  ss << "MOVE FROM " << from << " TO " << to;
-  return ss.str();
-}
-Move::operator uint32_t() const {
-    uint32_t moveRepresentation = static_cast<uint32_t>(from);
-    moveRepresentation <<= 7; //It takes 7 bits (potentially) to store 81 values
-    moveRepresentation |= to;
-    return moveRepresentation;
-}
-
-bool operator==(const Move &lhs, const Move &rhs) {
-  return lhs.from == rhs.from && lhs.to == rhs.to;
-}
-
-// Lexicographic
-bool operator<(const Move &lhs, const Move &rhs) {
-  return lhs.from < rhs.from || (!(rhs.from < lhs.from) && lhs.to < rhs.to);
-}
-
-std::ostream &operator<<(std::ostream &out, const Move &m) {
-  out << "{" << m.from << " -> " << m.to << "}";
-  return out;
-}
 
 
 ChineseCheckersState::ChineseCheckersState() {
   reset();
 }
 
+ChineseCheckersState::ChineseCheckersState(const ChineseCheckersState& other) {
+    currentPlayer = other.currentPlayer;
+    for (int i = 0; i < 81;++i) {
+        board[i] = other.board[i];
+    }
+    hash = other.hash;
+}
+
 void ChineseCheckersState::getMoves(std::vector<Move> &moves) const {
     getMoves(moves,this->currentPlayer);
 }
 
-void ChineseCheckersState::getMoves(std::vector<Move> &moves, int forPlayer) const {
+void ChineseCheckersState::getMoves(std::vector<Move> &moves, int forPlayer, bool onlyForward) const {
   // WARNING: This function must not return duplicate moves
     moves.clear();
     moves.reserve(100);
@@ -61,16 +44,22 @@ void ChineseCheckersState::getMoves(std::vector<Move> &moves, int forPlayer) con
             getMovesJumpStep(moves, i, i);
         }
     }
-    std::sort(moves.begin(),moves.end(),moveOrderingSort());
+    
     //inspired by http://stackoverflow.com/questions/4478636/stdremove-if-lambda-not-removing-anything-from-the-collection
     //Remove moves which would cause you to go back by a row or more.
-    for (auto iter = moves.begin(); iter != moves.end(); ) {
-        int difference = (*iter).to - (*iter).from;
-        
-        if ((forPlayer == 1 && difference < -8) || (forPlayer == 2 && difference > 8)) {
-            moves.erase(iter);
-        } else {
-            ++iter;
+    if (onlyForward) {
+        for (auto iter = moves.begin(); iter != moves.end(); ) {
+            int difference = ((*iter).to % 9 + (*iter).to / 9) - ((*iter).from % 9 + (*iter).from / 9);
+            //f ((m.from%9)+(m.from/9) < (m.to%9) + (m.to/9))
+            if ((forPlayer == 1 && difference <= 0) || (forPlayer == 2 && difference >= 0)) {
+                moves.erase(iter);
+            } else {
+                ++iter;
+            }
+        }
+        if (moves.size() == 0) {
+            //If we have no moves after filtering rerun with the full moves
+            getMoves(moves, forPlayer, false);
         }
     }
     
@@ -89,28 +78,30 @@ void ChineseCheckersState::getMoves(std::vector<Move> &moves, int forPlayer) con
         std::swap(moves[0],moves[greatestIndex]);
     }*/
 }
+Move ChineseCheckersState::getRandomMove() const {
+    std::vector<Move> moves;
+    getMoves(moves,currentPlayer,false);
+    size_t choice = rand() % moves.size();
+    return moves[choice];
+}
 
 uint64_t ChineseCheckersState::getHash() const {
     return hash;
 }
 bool ChineseCheckersState::applyMove(Move m) {
   // Ensure the from and to are reasonable
-  if (m.from > 80 || m.to > 80 || m.from == m.to)
-    return false;
-
-  // Check the move
-  // FIXME: This should be uncommented once you have getMoves working!!
-  /*
-  if (!isValidMove(m))
-    return false;
-  /**/
-
+    unsigned from = m.from;
+    unsigned to = m.to;
+    if (from > 80 || to > 80 || from == to) {
+        return false;
+    }
+    
   // Apply the move
-    ZobristHash(*this, this->hash, m.from); //Hash out what was already applied
-    ZobristHash(*this, this->hash, m.to);
-    std::swap(board[m.from], board[m.to]);
-    ZobristHash(*this, this->hash, m.from);
-    ZobristHash(*this, this->hash, m.to); //Hash in the new position
+    ZobristHash(*this, this->hash, from); //Hash out what was already applied
+    ZobristHash(*this, this->hash, to);
+    std::swap(board[from], board[to]);
+    ZobristHash(*this, this->hash, from);
+    ZobristHash(*this, this->hash, to); //Hash in the new position
   // Update whose turn it is
   swapTurn();
 
@@ -119,16 +110,20 @@ bool ChineseCheckersState::applyMove(Move m) {
 
 bool ChineseCheckersState::undoMove(Move m) {
   // Ensure the from and to are reasonable
-  if (m.from > 80 || m.to > 80 || m.from == m.to)
-    return false;
+    unsigned from = m.from;
+    unsigned to = m.to;
+    if (from > 80 || to > 80 || from == to) {
+        return false;
+    }
+    
 
   // Undo the move
-    ZobristHash(*this, this->hash, m.from); //Hash out what was already applied
-    ZobristHash(*this, this->hash, m.to);
+    ZobristHash(*this, this->hash, from); //Hash out what was already applied
+    ZobristHash(*this, this->hash, to);
 
-    std::swap(board[m.from], board[m.to]);
-    ZobristHash(*this, this->hash, m.from);
-    ZobristHash(*this, this->hash, m.to); //Hash in the new position
+    std::swap(board[from], board[to]);
+    ZobristHash(*this, this->hash, from);
+    ZobristHash(*this, this->hash, to); //Hash in the new position
 
     swapTurn();
 
@@ -147,11 +142,7 @@ bool ChineseCheckersState::undoMove(Move m) {
 bool ChineseCheckersState::gameOver() const {
   return player1Wins() || player2Wins();
 }
-//Returns the current player in the state.
-int ChineseCheckersState::getCurrentPlayer() const {
-    return currentPlayer;
-    
-}
+
 
 int ChineseCheckersState::winner() const {
   if (player1Wins())
@@ -249,12 +240,12 @@ void ChineseCheckersState::getMovesSingleStep(std::vector<Move> &moves, unsigned
 }
 bool ChineseCheckersState::moveExists(std::vector<Move> &moves, Move m) const
 {
-    auto end = moves.end();
+    /*auto end = moves.end();
     for (auto i = moves.begin();i != end;++i) {
         if (*i == m) { return true; }
     }
-    return false;
- //   return std::find(moves.begin(),moves.end(),m) != moves.end();
+    return false;*/
+    return std::find(moves.begin(),moves.end(),m) != moves.end();
 }
 
 void ChineseCheckersState::getMovesJumpStep(std::vector<Move> &moves, unsigned originalFrom, unsigned from) const
@@ -263,7 +254,7 @@ void ChineseCheckersState::getMovesJumpStep(std::vector<Move> &moves, unsigned o
     unsigned col = from % 9;
 
     // Up Left
-    if (col > 0 && board[from - 1] != 0)
+    /*if (col > 0 && board[from - 1] != 0)
     {
         unsigned col2 = (from - 1) % 9;
         if (col2 > 0 && board[from - 2] == 0 && !moveExists(moves, { originalFrom, from - 2 }))
@@ -328,13 +319,66 @@ void ChineseCheckersState::getMovesJumpStep(std::vector<Move> &moves, unsigned o
             moves.push_back({ originalFrom, from + 2 });
             getMovesJumpStep(moves, originalFrom, from + 2);
         }
+    }*/
+    // Up Left#
+    if (col > 0 && (from - 1) % 9 > 0 && board[from - 1] != 0 && board[from - 2] == 0 && !moveExists(moves, { originalFrom, from - 2 })) //col2 = (from - 1) % 9
+    {
+        moves.push_back({ originalFrom, from - 2 });
+        getMovesJumpStep(moves, originalFrom, from - 2);
+        
+    }
+    
+    // Up Right
+    if (row > 0 && (from - 9) / 9 > 0 && board[from - 9] != 0 && board[from - 18] == 0 && !moveExists(moves, { originalFrom, from - 18 })) // row2 = (from - 9) / 9;
+    {
+        
+        moves.push_back({ originalFrom, from - 18 });
+        getMovesJumpStep(moves, originalFrom, from - 18);
+    }
+    
+    // Left
+    //row2 = (from + 8) / 9
+    //col2 = (from + 8) % 9
+    if (col > 0 && row < 8 && (from + 8) % 9 > 0 && (from + 8) / 9 < 8 && board[from + 8] != 0 && board[from + 16] == 0 && !moveExists(moves, { originalFrom, from + 16 }))
+    {
+        moves.push_back({ originalFrom, from + 16 });
+        getMovesJumpStep(moves, originalFrom, from + 16);
+    }
+    
+    // Right
+    if (col < 8 && row > 0 && (from - 8) % 9 < 8 && (from - 8) / 9 > 0 && board[from - 8] != 0 && board[from - 16] == 0 && !moveExists(moves, { originalFrom, from - 16 }))
+    {
+        //unsigned row2 = (from - 8) / 9;
+        //unsigned col2 = (from - 8) % 9;
+        moves.push_back({ originalFrom, from - 16 });
+        getMovesJumpStep(moves, originalFrom, from - 16);
+    }
+    
+    // Down Left
+    if (row < 8 && (from + 9) / 9 < 8 && board[from + 9] != 0 && board[from + 18] == 0 && !moveExists(moves, { originalFrom, from + 18 }))
+    {
+        //unsigned row2 = (from + 9) / 9;
+        moves.push_back({ originalFrom, from + 18 });
+        getMovesJumpStep(moves, originalFrom, from + 18);
+    }
+    
+    // Down Right
+    if (col < 8 && (from + 1) % 9 < 8 && board[from + 1] != 0 && board[from + 2] == 0 && !moveExists(moves, { originalFrom, from + 2 }))
+    {
+        //unsigned col2 = (from + 1) % 9;
+        
+        moves.push_back({ originalFrom, from + 2 });
+        getMovesJumpStep(moves, originalFrom, from + 2);
     }
 }
 
 bool ChineseCheckersState::isValidMove(const Move &m) const {
   // Ensure from and to make sense
-  if (board[m.from] != currentPlayer || board[m.to] != 0)
-    return false;
+    unsigned from = m.from;
+    unsigned to = m.to;
+    if (board[from] != currentPlayer || board[to] != 0) {
+        return false;
+    }
 
   // NOTE: Checking validity in this way is inefficient
 

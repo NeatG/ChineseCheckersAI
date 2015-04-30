@@ -14,16 +14,10 @@
 #include <set>
 #include <string>
 #include <vector>
+#include "Move.h"
 class StateEvaluator;
-struct Move {
-    unsigned from;
-    unsigned to;
-    operator uint32_t() const;
-    operator std::string() const; //conversion operator
-};
-bool operator==(const Move &lhs, const Move &rhs);
-bool operator<(const Move &lhs, const Move &rhs);
-std::ostream &operator<<(std::ostream &out, const Move &m);
+
+
 
 class ChineseCheckersState {
     friend class StateEvaluator;
@@ -36,7 +30,7 @@ public:
 
   // Don't allow copies for simplicity (the functions below are for the rule of 5)
   // copy ctor
-  ChineseCheckersState(const ChineseCheckersState&) = delete;
+  ChineseCheckersState(const ChineseCheckersState&);
   // move ctor
   ChineseCheckersState(const ChineseCheckersState&&) = delete;
   // copy assignment
@@ -45,9 +39,10 @@ public:
   ChineseCheckersState &operator=(const ChineseCheckersState&&) = delete;
 
     // Put all valid moves into the vector of moves passed in by reference for a given player
-    void getMoves(std::vector<Move> &moves,int forPlayer) const;
+    void getMoves(std::vector<Move> &moves,int forPlayer, bool onlyForward = true) const;
     //Same as above but for the player whose turn it is to move
     void getMoves(std::vector<Move> &moves) const;
+    Move getRandomMove() const;
   // Apply the move m, returning true if m is a valid move, false if not
   bool applyMove(Move m);
 
@@ -63,8 +58,6 @@ public:
   // Return the player who won, assuming the game is over
   int winner() const;
 
-    //Return the current player
-    int getCurrentPlayer() const;
     
   // Reset the board to the initial state
   void reset();
@@ -83,8 +76,9 @@ public:
     void swapTurn();
     
     std::array<int, 81> board;
+    int currentPlayer;
 private:
-  int currentPlayer;
+  
 
   void getMovesSingleStep(std::vector<Move> &moves, unsigned from) const;
 

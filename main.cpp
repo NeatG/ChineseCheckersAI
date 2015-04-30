@@ -10,10 +10,11 @@
 #include <iostream>
 #include <sstream>
 #include "DistanceStateEvaluator.h"
+#include "TDLambdaStateEvaluator.h"
 #include "ZobristHash.h"
 #include "TranspositionTable.h"
 
-bool debugFlag = true; //Global debug flag, turning this on will cause the agent to no longer work within 10 seconds and will cause it to double check values from multiple functions (slow).
+bool debugFlag = false; //Global debug flag, turning this on will cause the agent to no longer work within 10 seconds and will cause it to double check values from multiple functions (slow).
 
 //This stringstream is used to print debug information _after_ the move timer has completed so that long debug messages don't disadvantage the agent.
 std::stringstream debugStream;
@@ -25,8 +26,11 @@ int main(int /*argc*/, char **/*argv*/) {
     DebugZHash();
  */
     Agent a;
-    DistanceStateEvaluator distanceStateEval;
-    a.setEvaluator(&distanceStateEval);
+    //DistanceStateEvaluator distanceStateEval;
+    TDLambdaStateEvaluator tdlambda;
+    tdlambda.train(10000);
+    //a.setEvaluator(&distanceStateEval);
+    a.setEvaluator(&tdlambda);
     a.playGame();
     return EXIT_SUCCESS;
 }

@@ -16,9 +16,9 @@
 
 class StateEvaluator {
 public:
-    virtual double evaluate(ChineseCheckersState&,int,bool repeat = true);
-    virtual double getLowerBound();
-    virtual double getUpperBound();
+    virtual double evaluate(ChineseCheckersState&,int,bool repeat = true) = 0;
+    virtual double getLowerBound() = 0;
+    virtual double getUpperBound() = 0;
 
 };
 

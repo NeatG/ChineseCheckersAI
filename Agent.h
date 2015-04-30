@@ -10,7 +10,7 @@
 #include <chrono>
 #include  <random>
 #include  <iterator>
-#include <unordered_map>
+#include <unordered_set>
 
 
 
@@ -23,7 +23,7 @@ struct moveOrderingSort {
     bool operator()( const Move &lhs, const Move &rhs) const;
 };
 // This map stores our scores for various moves. The move is turned into a uint32_t by bit shifting, since it takes at most 7 bits to store one location it takes 14 bits to store both.
-extern std::unordered_map<uint32_t,double> moveOrdering;
+extern double moveOrdering[32767];
 
 class Agent {
 public:
@@ -42,7 +42,7 @@ private:
     bool isValidStartGameMessage(const std::vector<std::string> &tokens) const;
     bool isValidMoveMessage(const std::vector<std::string> &tokens) const;
  
-
+    std::unordered_set<uint64_t> visitedStates;
     ChineseCheckersState state;
     enum Players { player1, player2 };
     Players current_player;
