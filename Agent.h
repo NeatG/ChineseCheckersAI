@@ -11,6 +11,7 @@
 #include  <random>
 #include  <iterator>
 #include <unordered_set>
+#include <unordered_map>
 
 
 
@@ -31,17 +32,28 @@ public:
     void playGame();
     void setEvaluator(StateEvaluator*);
     int getPlayerNumber() const;
+    void generateOpeningBook(int secondsPerMove);
+    void setName(std::string);
+    void setUCBDepth(int);
 private:
-    Move nextMove();
+    Move nextMove(int milliseconds = 9950);
     void printAndRecvEcho(const std::string &msg) const;
     std::string readMsg() const;
     std::vector<std::string> tokenizeMsg(const std::string &msg) const;
     void waitForStart();
     void switchCurrentPlayer();
     StateEvaluator* stateEval;
+
     bool isValidStartGameMessage(const std::vector<std::string> &tokens) const;
     bool isValidMoveMessage(const std::vector<std::string> &tokens) const;
- 
+    
+    //UCB Stuff
+    void banditSample(Move &mv, ChineseCheckersState &state, int depth=0);
+    std::unordered_map<uint32_t,double> banditArmTotals;
+    std::unordered_map<uint32_t,double> banditArmCounts;
+    double banditTotalCount = 0;
+    int ucbDepth = 0;
+    
     std::unordered_set<uint64_t> visitedStates;
     ChineseCheckersState state;
     enum Players { player1, player2 };

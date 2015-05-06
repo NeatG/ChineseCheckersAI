@@ -43,6 +43,7 @@ public:
     //Same as above but for the player whose turn it is to move
     void getMoves(std::vector<Move> &moves) const;
     Move getRandomMove() const;
+    Move getRandomForwardMove() const;
   // Apply the move m, returning true if m is a valid move, false if not
   bool applyMove(Move m);
 

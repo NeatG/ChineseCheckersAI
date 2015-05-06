@@ -12,10 +12,13 @@
 #include "TranspositionTable.h"
 
 
-Agent::Agent() : name("BestAI20150426") {
+Agent::Agent() : name("BestAI") {
     for (int i = 0;i < 32767;++i) {
         moveOrdering[i] = 0;
     }
+}
+void Agent::setName(std::string _name) {
+    name = _name;
 }
 // Stores scores for our move ordering.
 // Uncomment for move ordering.
@@ -87,41 +90,43 @@ double Agent::miniMax(ChineseCheckersState& state, int depthRemaining, std::chro
             return stateEval.getUpperBound();
         }
     }
-    TranspositionTableEntry* cacheEntry = &TranspositionTable[hash % TranspositionTableCacheSize];
-    if (!debugFlag && cacheEntry->hash == hash && cacheEntry->depthRemaining >= depthRemaining) { //Cache hit!
-        bool returnBoundedVal = false;
-        if (cacheEntry->value > cacheEntry->alpha && cacheEntry->value < cacheEntry->beta) {
-            //Value is inbetween the alpha and beta used at the time, so it is the true value
-            returnBoundedVal = true;
-        }
-        if (!maximizing && cacheEntry->value == cacheEntry->beta && cacheEntry->value >= beta) {
-            //We are minimizing and the value is greater or equal to our upper bound
-            returnBoundedVal = true;
-        }
-        if (maximizing && cacheEntry->value == cacheEntry->alpha && cacheEntry->value <= alpha) {
-            //We are maximizing and the value is less than or equal to our current lower bound
-            returnBoundedVal = true;
-        }
-        if (returnBoundedVal) {
-            if (maximizing) { return std::max(alpha,cacheEntry->value); }
-            return std::min(beta,cacheEntry->value);
-        }
-        //If we're still here then we have a cache hit but the value only helps us limit our search
-        if (maximizing && cacheEntry->value == cacheEntry->beta && alpha < cacheEntry->beta) {
-            //We're maximizing and our transposition table contains a value that is greater than or equal to the beta value so we need to do a full search to get the true value. We update alpha to make the search faster.
-            alpha = cacheEntry->beta;
-        }
-        if (!maximizing && cacheEntry->value == cacheEntry->alpha && beta > cacheEntry->alpha) {
-            //We're maximizing and our transposition table contains a value that is less than or equal to the alpha value so we need to do a full search to get the true value. We update alpha to make the search faster.
-            beta = cacheEntry->alpha;
+    TranspositionTableEntry* cacheEntry = nullptr;
+    if (depthRemaining >= 2) {
+        cacheEntry = &TranspositionTable[hash % TranspositionTableCacheSize];
+        if (!debugFlag && cacheEntry->hash == hash && cacheEntry->depthRemaining >= depthRemaining) { //Cache hit!
+            bool returnBoundedVal = false;
+            if (cacheEntry->value > cacheEntry->alpha && cacheEntry->value < cacheEntry->beta) {
+                //Value is inbetween the alpha and beta used at the time, so it is the true value
+                returnBoundedVal = true;
+            }
+            if (!maximizing && cacheEntry->value == cacheEntry->beta && cacheEntry->value >= beta) {
+                //We are minimizing and the value is greater or equal to our upper bound
+                returnBoundedVal = true;
+            }
+            if (maximizing && cacheEntry->value == cacheEntry->alpha && cacheEntry->value <= alpha) {
+                //We are maximizing and the value is less than or equal to our current lower bound
+                returnBoundedVal = true;
+            }
+            if (returnBoundedVal) {
+                if (maximizing) { return std::max(alpha,cacheEntry->value); }
+                return std::min(beta,cacheEntry->value);
+            }
+            //If we're still here then we have a cache hit but the value only helps us limit our search
+            if (maximizing && cacheEntry->value == cacheEntry->beta && alpha < cacheEntry->beta) {
+                //We're maximizing and our transposition table contains a value that is greater than or equal to the beta value so we need to do a full search to get the true value. We update alpha to make the search faster.
+                alpha = cacheEntry->beta;
+            }
+            if (!maximizing && cacheEntry->value == cacheEntry->alpha && beta > cacheEntry->alpha) {
+                //We're maximizing and our transposition table contains a value that is less than or equal to the alpha value so we need to do a full search to get the true value. We update alpha to make the search faster.
+                beta = cacheEntry->alpha;
+            }
         }
     }
-    
     std::vector<Move> moves;
     state.getMoves(moves);
     std::sort(moves.begin(),moves.end(),moveOrderingSort());
     Move bestMove = {0,0};
-    for (auto mv : moves) {
+    for (auto &mv : moves) {
         state.applyMove(mv);
         double temp = miniMax(state,depthRemaining - 1,timeLimit,alpha,beta,stateEval,!maximizing);
         if (maximizing) {
@@ -147,7 +152,7 @@ double Agent::miniMax(ChineseCheckersState& state, int depthRemaining, std::chro
         uint32_t moveRepresentation = uint32_t(bestMove);
         moveOrdering[moveRepresentation] += pow(2,depthRemaining);
     }
-    if (debugFlag && cacheEntry->hash == hash && cacheEntry->depthRemaining >= depthRemaining) {
+    if (debugFlag && depthRemaining >= 2 && cacheEntry->hash == hash && cacheEntry->depthRemaining >= depthRemaining) {
         bool returnBoundedVal = false;
         if (cacheEntry->value > cacheEntry->alpha && cacheEntry->value < cacheEntry->beta) {
             //Value is inbetween the alpha and beta used at the time, so it is the true value
@@ -169,15 +174,21 @@ double Agent::miniMax(ChineseCheckersState& state, int depthRemaining, std::chro
             }
         }
     }
-    cacheEntry->hash = hash;
-    cacheEntry->alpha = alpha;
-    cacheEntry->beta = beta;
-    cacheEntry->depthRemaining = depthRemaining;
+    if (cacheEntry != nullptr) {
+        cacheEntry->hash = hash;
+        cacheEntry->alpha = alpha;
+        cacheEntry->beta = beta;
+        cacheEntry->depthRemaining = depthRemaining;
+        if (maximizing) {
+            cacheEntry->value = alpha;
+        } else {
+            cacheEntry->value = beta;
+        }
+    }
     if (maximizing) {
-        cacheEntry->value = alpha;
+        
         return alpha;
     }
-    cacheEntry->value = beta;
     return beta;
 }
 std::pair<Move,double> Agent::firstNode(ChineseCheckersState& state, int depthRemaining, std::chrono::steady_clock::time_point timeLimit, double alpha, double beta, StateEvaluator& stateEval) {
@@ -252,31 +263,127 @@ std::pair<Move,double> Agent::firstNode(ChineseCheckersState& state, int depthRe
 int Agent::getPlayerNumber() const {
     return myPlayerNumber;
 }
-
-Move Agent::nextMove() { //Advances pieces based on distance to goal.
-    std::chrono::high_resolution_clock::time_point move_time = std::chrono::high_resolution_clock::now(); //Move_time is when we have received our turn
-    std::chrono::steady_clock::time_point timeLimit = move_time + std::chrono::milliseconds(9950);
-    if (debugFlag) { timeLimit = move_time + std::chrono::seconds(30); }
-    Move currentMove = {0, 0};
-    Move lastMove = {0, 0};
-    std::pair<Move,double> moveScore;
-    moveScore.second = 0;
-    int i = 0;
-    do {
-        ++i;
-        lastMove = currentMove;
-        if (moveScore.second >= stateEval->getUpperBound()) { break; } // we won!
-        moveScore = firstNode(state,i,timeLimit,stateEval->getLowerBound(),stateEval->getUpperBound(),*stateEval);
-        currentMove = moveScore.first;
-        if (std::chrono::steady_clock::now() < timeLimit) {
-            debugStream.clear();
-            debugStream.str("");
-            debugStream << "Depth " << i << " Move From: " << currentMove.from << " to " << currentMove.to << " took " << std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - move_time).count() << "s" << std::endl;
-            
+//Generates the first 5 moves for both p1 and p2 from our currently WARNING: resets the internal state of hte agent.
+void Agent::generateOpeningBook(int secondsPerMove) {
+    state.reset();
+    for (int i = 0;i < 10;++i) {
+        Move best = nextMove(secondsPerMove * 1000);
+        std::cout << "P" << state.currentPlayer << ": " << best.from << " -> " << best.to << std::endl;
+        std::cout << debugStream.str();
+        debugStream.clear();
+        debugStream.str("");
+        state.applyMove(best);
+    }
+}
+void Agent::setUCBDepth(int depth) {
+    ucbDepth = depth;
+    std::cerr << "Setting UCB Depth to " << depth << std::endl;
+}
+void Agent::banditSample(Move &move, ChineseCheckersState &state,int depth) {
+    ChineseCheckersState s = state;
+    s.applyMove(move);
+    int depthRemaining = depth;
+    if (depth == 0) { depthRemaining = 1; }
+    while (!s.gameOver() && depthRemaining > 0) {
+        if (depth > 0) { depthRemaining--; }
+        std::vector<Move> moves;
+        s.getMoves(moves);
+        Move toApply = {0,0};
+        double val = rand() % 100000;
+        val /= 100000;
+        if (val < 0.05) { // select random move Epsilon greedy
+            toApply = s.getRandomForwardMove();
+        } else {
+            int greatestDistance = 0;
+            for (auto &mv : moves) {
+                int difference = abs(static_cast<int>(mv.to) - static_cast<int>(mv.from));
+                int distance = (difference % 9) + (difference / 9);
+                if (distance > greatestDistance) {
+                    greatestDistance = distance;
+                    toApply = mv;
+                }
+            }
         }
+        s.applyMove(toApply);
+    }
+    uint32_t moveRepresentation = uint32_t(move);
+    if (banditArmTotals.find(moveRepresentation) == banditArmTotals.end()) {
+        banditArmTotals[moveRepresentation] = 0;
+        banditArmCounts[moveRepresentation] = 0;
+    }
+    int score = 0;
+    if (depth > 0) {
+        score = (*stateEval).evaluate(s, myPlayerNumber);
+    } else {
+        if (s.currentPlayer == state.currentPlayer) {
+            score = 1;
+        }
+    }
+
+    banditArmTotals[moveRepresentation] += score;
+    ++banditArmCounts[moveRepresentation];
+    ++banditTotalCount;
+}
+Move Agent::nextMove(int milliseconds) { //Advances pieces based on distance to goal.
+    std::chrono::high_resolution_clock::time_point move_time = std::chrono::high_resolution_clock::now(); //Move_time is when we have received our turn
+    std::chrono::steady_clock::time_point timeLimit = move_time + std::chrono::milliseconds(milliseconds);
+//    if (debugFlag) { timeLimit = move_time + std::chrono::seconds(30); }
+//    Move currentMove = {0, 0};
+//    Move lastMove = {0, 0};
+//    std::pair<Move,double> moveScore;
+//    moveScore.second = 0;
+//    int i = 0;
+//    do {
+//        ++i;
+//        lastMove = currentMove;
+//        if (moveScore.second >= stateEval->getUpperBound()) { break; } // we won!
+//        moveScore = firstNode(state,i,timeLimit,stateEval->getLowerBound(),stateEval->getUpperBound(),*stateEval);
+//        currentMove = moveScore.first;
+//        if (std::chrono::steady_clock::now() < timeLimit) {
+//            debugStream.clear();
+//            debugStream.str("");
+//            debugStream << "Depth " << i << " Move From: " << currentMove.from << " to " << currentMove.to << " took " << std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - move_time).count() << "s" << std::endl;
+//            
+//        }
+//        
+//    } while (std::chrono::steady_clock::now() < timeLimit);
+//    return lastMove;
+    std::vector<Move> moves;
+    state.getMoves(moves,myPlayerNumber,false);
+    for (auto &mv : moves) {
+        banditSample(mv,state,ucbDepth);
+    }
+    
+    while (std::chrono::steady_clock::now() < timeLimit) {
+        double bestScore = -1;
+        Move bestMove = {0,0};
+        for (auto &mv : moves) {
+            uint32_t moveRepresentation = uint32_t(mv);
+            double average = banditArmTotals[moveRepresentation] / banditArmCounts[moveRepresentation];
+            double score = average + sqrt((2 * log(banditTotalCount)) / banditArmCounts[moveRepresentation]);
+            if (score > bestScore || bestMove == Move{0,0}) {
+                bestMove = mv;
+                bestScore = score;
+            }
+        }
+        banditSample(bestMove,state,ucbDepth);
+    }
+    double bestScore = -1;
+    Move bestMove = {0,0};
+    for (auto &mv : moves) {
+        uint32_t moveRepresentation = uint32_t(mv);
         
-    } while (std::chrono::steady_clock::now() < timeLimit);
-    return lastMove;
+        double score = banditArmTotals[moveRepresentation] / banditArmCounts[moveRepresentation];
+        debugStream << "Move from " << mv.from << " to " << mv.to << " : " << score << " (" << banditArmCounts[moveRepresentation] << ")" << std::endl;
+        if (score > bestScore) {
+            bestMove = mv;
+            bestScore = score;
+        }
+    }
+    banditArmCounts.clear();
+    banditArmTotals.clear();
+    banditTotalCount = 0;
+    return bestMove;
 }
 
 void Agent::setEvaluator(StateEvaluator* stateEval) {
