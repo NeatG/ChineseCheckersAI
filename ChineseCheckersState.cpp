@@ -22,6 +22,15 @@ ChineseCheckersState::ChineseCheckersState() {
     reset();
 }
 
+ChineseCheckersState& ChineseCheckersState::operator=(const ChineseCheckersState& other) {
+    currentPlayer = other.currentPlayer;
+    for (int i = 0; i < 81;++i) {
+        board[i] = other.board[i];
+    }
+    hash = other.hash;
+    return *this;
+}
+
 ChineseCheckersState::ChineseCheckersState(const ChineseCheckersState& other) {
     currentPlayer = other.currentPlayer;
     for (int i = 0; i < 81;++i) {

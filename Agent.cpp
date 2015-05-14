@@ -279,9 +279,84 @@ void Agent::setUCBDepth(int depth) {
     ucbDepth = depth;
     std::cerr << "Setting UCB Depth to " << depth << std::endl;
 }
-void Agent::banditSample(Move &move, ChineseCheckersState &state,int depth) {
+
+double Agent::SelectLeaf(uint32_t node) {
+    double payout = 0;
+    if (IsLeaf(node)) {
+        /*if (MCTree[node].samples > 4) {
+             }*/
+        Expand(node);
+        if (MCTree[node].numberChildren > 0) {
+            payout = DoPlayout(SelectBestChild(node), ucbDepth);
+        } else {
+            payout = DoPlayout(node, ucbDepth);
+        }
+    } else {
+        payout = SelectLeaf(SelectBestChild(node));
+    }
+    MCTree[node].payOff += payout;
+    ++MCTree[node].samples;
+    return payout;
+}
+uint32_t Agent::SelectBestChild(uint32_t node) {
+    MCTSNode nodeEntry = MCTree[node];
+    uint32_t returnNode = 0;
+    double bestScore = 0;
+    for (int i = nodeEntry.indexFirstChild;i < nodeEntry.indexFirstChild + nodeEntry.numberChildren;++i) {
+        if (MCTree[i].samples == 0) { return i; }
+        double score = GetUCBVal(i,node);
+        if (score > bestScore || returnNode == 0) {
+            bestScore = score;
+            returnNode = i;
+        }
+    }
+    return returnNode;
+    
+}// Use the UCB rule to find the best child
+double Agent::GetUCBVal(uint32_t node, uint32_t parent) {
+    double average = MCTree[node].payOff / MCTree[node].samples;
+    double score = average + (0.8 * sqrt(log(MCTree[parent].samples) / MCTree[node].samples));
+    return score;
+} // Get the UCB value of a given node
+bool Agent::IsLeaf(uint32_t node) {
+    return MCTree[node].numberChildren == 0;
+} // is the designated node a leaf
+void Agent::GetNodeState(uint32_t node, ChineseCheckersState& state) {
+    uint32_t parent = node;
+    std::vector<Move> moves;
+    while (parent != 0) {
+        moves.push_back(MCTree[parent].gotToHere);
+        parent = MCTree[parent].parentIndex;
+    }
+    std::reverse(moves.begin(), moves.end());
+    for (auto mv : moves) {
+        state.applyMove(mv);
+    }
+}
+void Agent::Expand(uint32_t node) {
     ChineseCheckersState s = state;
-    s.applyMove(move);
+    GetNodeState(node, s);
+    if (s.gameOver()) {
+        return;
+    }
+    std::vector<Move> leafMoves;
+    s.getMoves(leafMoves);
+    MCTree[node].numberChildren = leafMoves.size();
+    MCTree[node].indexFirstChild = MCTree.size();
+    for (auto mv : leafMoves) {
+        MCTSNode leafNode;
+        leafNode.parentIndex = node;
+        leafNode.gotToHere = mv;
+        leafNode.samples = 0;
+        leafNode.payOff = 0;
+        leafNode.numberChildren = 0;
+        MCTree.push_back(leafNode);
+    }
+}; // expand the designated node and add its children to the tree
+
+double Agent::DoPlayout(uint32_t node, int depth) {
+    ChineseCheckersState s = state;
+    GetNodeState(node, s);
     int depthRemaining = depth;
     if (depth == 0) { depthRemaining = 1; }
     while (!s.gameOver() && depthRemaining > 0) {
@@ -306,24 +381,22 @@ void Agent::banditSample(Move &move, ChineseCheckersState &state,int depth) {
         }
         s.applyMove(toApply);
     }
-    uint32_t moveRepresentation = uint32_t(move);
-    if (banditArmTotals.find(moveRepresentation) == banditArmTotals.end()) {
-        banditArmTotals[moveRepresentation] = 0;
-        banditArmCounts[moveRepresentation] = 0;
-    }
     int score = 0;
     if (depth > 0) {
+        int winner = s.winner();
+        if (winner > 0) {
+            if (winner == myPlayerNumber) { return (*stateEval).getUpperBound(); }
+            else { return (*stateEval).getLowerBound(); }
+        }
         score = (*stateEval).evaluate(s, myPlayerNumber);
     } else {
         if (s.currentPlayer == state.currentPlayer) {
             score = 1;
         }
     }
+    return score;
+}// play out the game, returning the evaluation at the end of the game
 
-    banditArmTotals[moveRepresentation] += score;
-    ++banditArmCounts[moveRepresentation];
-    ++banditTotalCount;
-}
 Move Agent::nextMove(int milliseconds) { //Advances pieces based on distance to goal.
     std::chrono::high_resolution_clock::time_point move_time = std::chrono::high_resolution_clock::now(); //Move_time is when we have received our turn
     std::chrono::steady_clock::time_point timeLimit = move_time + std::chrono::milliseconds(milliseconds);
@@ -348,41 +421,37 @@ Move Agent::nextMove(int milliseconds) { //Advances pieces based on distance to 
 //        
 //    } while (std::chrono::steady_clock::now() < timeLimit);
 //    return lastMove;
-    std::vector<Move> moves;
-    state.getMoves(moves,myPlayerNumber,false);
-    for (auto &mv : moves) {
-        banditSample(mv,state,ucbDepth);
-    }
+    MCTree.clear();
+    MCTSNode root;
+    root.parentIndex = 0;
+    root.payOff = 0;
+    root.samples = 0;
+    MCTree.push_back(root);
+    Expand(0);
+//    std::cerr << MCTree.size() << std::endl;
+//    std::cerr << MCTree[1].gotToHere << std::endl;
+//    SelectLeaf(0);
+//    std::cerr << MCTree[0].numberChildren << std::endl;
     
     while (std::chrono::steady_clock::now() < timeLimit) {
-        double bestScore = -1;
-        Move bestMove = {0,0};
-        for (auto &mv : moves) {
-            uint32_t moveRepresentation = uint32_t(mv);
-            double average = banditArmTotals[moveRepresentation] / banditArmCounts[moveRepresentation];
-            double score = average + sqrt((2 * log(banditTotalCount)) / banditArmCounts[moveRepresentation]);
-            if (score > bestScore || bestMove == Move{0,0}) {
-                bestMove = mv;
-                bestScore = score;
-            }
-        }
-        banditSample(bestMove,state,ucbDepth);
+        SelectLeaf(0);
     }
-    double bestScore = -1;
-    Move bestMove = {0,0};
-    for (auto &mv : moves) {
-        uint32_t moveRepresentation = uint32_t(mv);
+    root = MCTree[0];
+//    std::cerr << MCTree.size() << std::endl;
+//    std::cerr << MCTree[0].numberChildren << std::endl;
+    Move bestMove = Move{0,0};
+    double bestScore = 0;
+    for (int i = root.indexFirstChild;i < root.indexFirstChild + root.numberChildren;++i) {
+        MCTSNode child = MCTree[i];
         
-        double score = banditArmTotals[moveRepresentation] / banditArmCounts[moveRepresentation];
-        debugStream << "Move from " << mv.from << " to " << mv.to << " : " << score << " (" << banditArmCounts[moveRepresentation] << ")" << std::endl;
-        if (score > bestScore) {
-            bestMove = mv;
+        double score = child.payOff / child.samples;
+        debugStream << child.gotToHere.from << " to " << child.gotToHere.to << ": " << score << "(" << child.samples << ")" << std::endl;
+        if (score > bestScore || bestMove == Move{0,0}) {
             bestScore = score;
+            bestMove = child.gotToHere;
         }
     }
-    banditArmCounts.clear();
-    banditArmTotals.clear();
-    banditTotalCount = 0;
+
     return bestMove;
 }
 

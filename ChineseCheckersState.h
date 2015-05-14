@@ -34,7 +34,7 @@ public:
   // move ctor
   ChineseCheckersState(const ChineseCheckersState&&) = delete;
   // copy assignment
-  ChineseCheckersState &operator=(const ChineseCheckersState&) = delete;
+  ChineseCheckersState &operator=(const ChineseCheckersState&);
   // move assignment
   ChineseCheckersState &operator=(const ChineseCheckersState&&) = delete;
 

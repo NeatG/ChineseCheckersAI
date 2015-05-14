@@ -25,6 +25,14 @@ struct moveOrderingSort {
 };
 // This map stores our scores for various moves. The move is turned into a uint32_t by bit shifting, since it takes at most 7 bits to store one location it takes 14 bits to store both.
 extern double moveOrdering[32767];
+struct MCTSNode {
+    uint32_t numberChildren;
+    uint32_t indexFirstChild;
+    uint32_t samples;
+    double payOff;
+    uint32_t parentIndex;
+    Move gotToHere;
+};
 
 class Agent {
 public:
@@ -48,12 +56,17 @@ private:
     bool isValidMoveMessage(const std::vector<std::string> &tokens) const;
     
     //UCB Stuff
-    void banditSample(Move &mv, ChineseCheckersState &state, int depth=0);
-    std::unordered_map<uint32_t,double> banditArmTotals;
-    std::unordered_map<uint32_t,double> banditArmCounts;
-    double banditTotalCount = 0;
+    std::vector<MCTSNode> MCTree;
+
     int ucbDepth = 0;
-    
+    Move GetBestMove(); // the high-level function for computing the best move
+    double SelectLeaf(uint32_t node); // traverse down the tree (recursively), returning the value at the leaf of the sample
+    uint32_t SelectBestChild(uint32_t node); // Use the UCB rule to find the best child
+    double GetUCBVal(uint32_t node, uint32_t parent); // Get the UCB value of a given node
+    bool IsLeaf(uint32_t node); // is the designated node a leaf
+    void Expand(uint32_t node); // expand the designated node and add its children to the tree
+    double DoPlayout(uint32_t node, int depth); // play out the game, returning the evaluation at the end of the game
+    void GetNodeState(uint32_t node, ChineseCheckersState& state);
     std::unordered_set<uint64_t> visitedStates;
     ChineseCheckersState state;
     enum Players { player1, player2 };
