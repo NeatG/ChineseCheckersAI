@@ -268,7 +268,8 @@ void Agent::generateOpeningBook(int secondsPerMove) {
     state.reset();
     for (int i = 0;i < 10;++i) {
         Move best = nextMove(secondsPerMove * 1000);
-        std::cout << "P" << state.currentPlayer << ": " << best.from << " -> " << best.to << std::endl;
+        std::cout << "P" <<
+        state.currentPlayer << ": " << best.from << " -> " << best.to << std::endl;
         std::cout << debugStream.str();
         debugStream.clear();
         debugStream.str("");
@@ -279,13 +280,28 @@ void Agent::setUCBDepth(int depth) {
     ucbDepth = depth;
     std::cerr << "Setting UCB Depth to " << depth << std::endl;
 }
+void Agent::setSearchType(std::string type) {
+    if (type == "MCTS") {
+        currentSearchType = MCTS;
+        std::cerr << "Search mode set to: MCTS" << std::endl;
+    }
+    if (type == "MINIMAX") {
+        currentSearchType = MINIMAX;
+        std::cerr << "Search mode set to: MINIMAX" << std::endl;
+    }
+}
+void Agent::setExploration(double exp) {
+    exploration = exp;
+    std::cerr << "Set exploraiton constant to: " << exp << std::endl;
+}
 
 double Agent::SelectLeaf(uint32_t node) {
     double payout = 0;
     if (IsLeaf(node)) {
-        /*if (MCTree[node].samples > 4) {
-             }*/
-        Expand(node);
+        if (MCTree[node].samples > 4) {
+            Expand(node);
+        }
+        
         if (MCTree[node].numberChildren > 0) {
             payout = DoPlayout(SelectBestChild(node), ucbDepth);
         } else {
@@ -315,7 +331,7 @@ uint32_t Agent::SelectBestChild(uint32_t node) {
 }// Use the UCB rule to find the best child
 double Agent::GetUCBVal(uint32_t node, uint32_t parent) {
     double average = MCTree[node].payOff / MCTree[node].samples;
-    double score = average + (0.8 * sqrt(log(MCTree[parent].samples) / MCTree[node].samples));
+    double score = average + (exploration * sqrt(log(MCTree[parent].samples) / MCTree[node].samples));
     return score;
 } // Get the UCB value of a given node
 bool Agent::IsLeaf(uint32_t node) {
@@ -396,63 +412,119 @@ double Agent::DoPlayout(uint32_t node, int depth) {
     }
     return score;
 }// play out the game, returning the evaluation at the end of the game
+double Agent::sampleRatio() { //Returns the ratio of hte smallest to largest sample sizes in the MCTree
+    MCTSNode root = MCTree[0];
+    double maxSamples = 0;
+    double minSamples = -1;
+    for (int i = root.indexFirstChild;i < root.indexFirstChild + root.numberChildren;++i) {
+        MCTSNode child = MCTree[i];
+        //std::cerr << " * " << child.samples << std::endl;
+        if (child.samples > maxSamples) {
+            maxSamples = child.samples;
+        }
+        if (minSamples == -1) {
+            minSamples = child.samples;
+        } else if (child.samples < minSamples) {
+            minSamples = child.samples;
+        }
+    }
+    //std::cerr << "Min: " << minSamples << " / " << maxSamples << std::endl;
+    return minSamples / maxSamples;
+}
+void Agent::calculateExploration(double increment, int direction) { //Tries to find the best exploration constant. Increment is the amount it adds or subtracts.
+    double currentRatio = 0;
+    for (int i = 0;i < 100;i++) {
+        MCTree.clear();
+        MCTSNode root;
+        root.parentIndex = 0;
+        root.payOff = 0;
+        root.samples = 0;
+        MCTree.push_back(root);
+        Expand(0);
+        while (MCTree[0].samples < 10000) {
+            SelectLeaf(0);
+        }
+        currentRatio += sampleRatio();
+    }
+    double targetRatio = 0.01;
+    currentRatio /= 100;
+    if (fabs(currentRatio - targetRatio) < 0.0001) {
+        std::cerr << "Set exploration to " << exploration << std::endl;
+        return;
+    }
+    int newDirection = 0;
+    if (targetRatio < currentRatio) { newDirection = -1; }
+    if (targetRatio > currentRatio) { newDirection = 1; }
+    if ((direction != 0 && newDirection != direction) || currentRatio < 0) {
+        exploration += increment * -1 * newDirection;
+        calculateExploration(increment * 0.5,newDirection);
+    } else {
+        exploration += increment * newDirection;
+        std::cerr << "Set exploration to " << exploration << " (" << currentRatio << ")" << std::endl;
+        calculateExploration(increment,newDirection);
+    }
 
+    
+}
 Move Agent::nextMove(int milliseconds) { //Advances pieces based on distance to goal.
     std::chrono::high_resolution_clock::time_point move_time = std::chrono::high_resolution_clock::now(); //Move_time is when we have received our turn
     std::chrono::steady_clock::time_point timeLimit = move_time + std::chrono::milliseconds(milliseconds);
-//    if (debugFlag) { timeLimit = move_time + std::chrono::seconds(30); }
-//    Move currentMove = {0, 0};
-//    Move lastMove = {0, 0};
-//    std::pair<Move,double> moveScore;
-//    moveScore.second = 0;
-//    int i = 0;
-//    do {
-//        ++i;
-//        lastMove = currentMove;
-//        if (moveScore.second >= stateEval->getUpperBound()) { break; } // we won!
-//        moveScore = firstNode(state,i,timeLimit,stateEval->getLowerBound(),stateEval->getUpperBound(),*stateEval);
-//        currentMove = moveScore.first;
-//        if (std::chrono::steady_clock::now() < timeLimit) {
-//            debugStream.clear();
-//            debugStream.str("");
-//            debugStream << "Depth " << i << " Move From: " << currentMove.from << " to " << currentMove.to << " took " << std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - move_time).count() << "s" << std::endl;
-//            
-//        }
-//        
-//    } while (std::chrono::steady_clock::now() < timeLimit);
-//    return lastMove;
-    MCTree.clear();
-    MCTSNode root;
-    root.parentIndex = 0;
-    root.payOff = 0;
-    root.samples = 0;
-    MCTree.push_back(root);
-    Expand(0);
-//    std::cerr << MCTree.size() << std::endl;
-//    std::cerr << MCTree[1].gotToHere << std::endl;
-//    SelectLeaf(0);
-//    std::cerr << MCTree[0].numberChildren << std::endl;
-    
-    while (std::chrono::steady_clock::now() < timeLimit) {
-        SelectLeaf(0);
-    }
-    root = MCTree[0];
-//    std::cerr << MCTree.size() << std::endl;
-//    std::cerr << MCTree[0].numberChildren << std::endl;
-    Move bestMove = Move{0,0};
-    double bestScore = 0;
-    for (int i = root.indexFirstChild;i < root.indexFirstChild + root.numberChildren;++i) {
-        MCTSNode child = MCTree[i];
+    debugStream << "  *****  " << std::endl;
+    if (debugFlag) { timeLimit = move_time + std::chrono::seconds(30); }
+    if (currentSearchType == MINIMAX) {
+            Move currentMove = {0, 0};
+            Move lastMove = {0, 0};
+            std::pair<Move,double> moveScore;
+            moveScore.second = 0;
+            int i = 0;
+            do {
+                ++i;
+                lastMove = currentMove;
+                if (moveScore.second >= stateEval->getUpperBound()) { break; } // we won!
+                moveScore = firstNode(state,i,timeLimit,stateEval->getLowerBound(),stateEval->getUpperBound(),*stateEval);
+                currentMove = moveScore.first;
+                if (std::chrono::steady_clock::now() < timeLimit) {
+                    debugStream.clear();
+                    debugStream.str("");
+                    debugStream << "Depth " << i << " Move From: " << currentMove.from << " to " << currentMove.to << " took " << std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - move_time).count() << "s" << std::endl;
+                    
+                }
+                
+            } while (std::chrono::steady_clock::now() < timeLimit);
+            return lastMove;
         
-        double score = child.payOff / child.samples;
-        debugStream << child.gotToHere.from << " to " << child.gotToHere.to << ": " << score << "(" << child.samples << ")" << std::endl;
-        if (score > bestScore || bestMove == Move{0,0}) {
-            bestScore = score;
-            bestMove = child.gotToHere;
+    } else if (currentSearchType == MCTS) {
+        MCTree.clear();
+        MCTSNode root;
+        root.parentIndex = 0;
+        root.payOff = 0;
+        root.samples = 0;
+        MCTree.push_back(root);
+        Expand(0);
+        
+        while (std::chrono::steady_clock::now() < timeLimit) {
+            SelectLeaf(0);
         }
+        root = MCTree[0];
+        debugStream << "Tree size: " << MCTree.size() << std::endl;
+        //    std::cerr << MCTree[0].numberChildren << std::endl;
+        Move bestMove = Move{0,0};
+        double bestScore = 0;
+        for (int i = root.indexFirstChild;i < root.indexFirstChild + root.numberChildren;++i) {
+            MCTSNode child = MCTree[i];
+            
+            double score = child.payOff / child.samples;
+            debugStream << child.gotToHere.from << " to " << child.gotToHere.to << ": " << score << "(" << child.samples << ")" << std::endl;
+            if (score > bestScore || bestMove == Move{0,0}) {
+                bestScore = score;
+                bestMove = child.gotToHere;
+            }
+        }
+        
+        return bestMove;
+        
     }
-
-    return bestMove;
+    return Move{0,0};
 }
 
 void Agent::setEvaluator(StateEvaluator* stateEval) {
@@ -461,7 +533,7 @@ void Agent::setEvaluator(StateEvaluator* stateEval) {
 
 void Agent::playGame() {
   // Identify myself
-    
+
   std::cout << "#name " << name << std::endl;
     while (false) {
         const Move m = nextMove();

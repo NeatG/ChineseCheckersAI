@@ -21,10 +21,12 @@ double TDLambdaStateEvaluator::evaluate(ChineseCheckersState& state, int who, bo
 }
 
 double TDLambdaStateEvaluator::getLowerBound() {
-    return -10000;
+    return -26; //All of the negative weights added = -25.384
+    //return -10000;
 }
 double TDLambdaStateEvaluator::getUpperBound() {
-    return 10000;
+    return 18; //I've calculated based on the current hardcoded weights that 17.3 is the heighest socre you could get.
+    //return 1000;
 }
 void TDLambdaStateEvaluator::train(int numTrains) {
 

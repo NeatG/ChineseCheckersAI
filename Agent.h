@@ -43,6 +43,10 @@ public:
     void generateOpeningBook(int secondsPerMove);
     void setName(std::string);
     void setUCBDepth(int);
+    void setSearchType(std::string);
+    void setExploration(double);
+    void calculateExploration(double increment, int direction = 0); //Sets the exploration parameter in UCB based on our evaluation function
+
 private:
     Move nextMove(int milliseconds = 9950);
     void printAndRecvEcho(const std::string &msg) const;
@@ -67,12 +71,16 @@ private:
     void Expand(uint32_t node); // expand the designated node and add its children to the tree
     double DoPlayout(uint32_t node, int depth); // play out the game, returning the evaluation at the end of the game
     void GetNodeState(uint32_t node, ChineseCheckersState& state);
+    double exploration = 1.175;
+    double sampleRatio();
     std::unordered_set<uint64_t> visitedStates;
     ChineseCheckersState state;
     enum Players { player1, player2 };
     Players current_player;
     Players my_player;
     int myPlayerNumber;
+    enum searchType { MINIMAX, MCTS };
+    searchType currentSearchType = MINIMAX;
     std::string name;
     std::string opp_name;
     //Overloaded minimax that does not check transposition tables or use alpha beta
