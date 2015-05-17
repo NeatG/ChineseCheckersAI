@@ -65,7 +65,7 @@ int main(int argc, char ** argv) {
                     std::cerr << "Invalid argument for -exploration." << std::endl;
                 }
                 ++i;
-                a.setExploration(atoi(argv[i]));
+                a.setExploration(atof(argv[i]));
                 continue;
             } else if (curArg == "-calculate-exploration") {
                 calculatingExploration = true;
