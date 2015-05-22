@@ -30,6 +30,7 @@ struct MCTSNode {
     uint32_t indexFirstChild;
     uint32_t samples;
     double payOff;
+    bool maximizing; //Essentially this is True if the node is on our move.
     uint32_t parentIndex;
     Move gotToHere;
 };
@@ -69,6 +70,7 @@ private:
     double GetUCBVal(uint32_t node, uint32_t parent); // Get the UCB value of a given node
     bool IsLeaf(uint32_t node); // is the designated node a leaf
     void Expand(uint32_t node); // expand the designated node and add its children to the tree
+    void DoPlayOutThread(uint32_t node, int depth, double* result);
     double DoPlayout(uint32_t node, int depth); // play out the game, returning the evaluation at the end of the game
     void GetNodeState(uint32_t node, ChineseCheckersState& state);
     double exploration = 1.175;
@@ -80,7 +82,7 @@ private:
     Players my_player;
     int myPlayerNumber;
     enum searchType { MINIMAX, MCTS };
-    searchType currentSearchType = MINIMAX;
+    searchType currentSearchType = MCTS;
     std::string name;
     std::string opp_name;
     //Overloaded minimax that does not check transposition tables or use alpha beta

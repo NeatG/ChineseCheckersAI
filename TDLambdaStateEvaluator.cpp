@@ -9,7 +9,7 @@
 #include "TDLambdaStateEvaluator.h"
 #include <iostream>
 
-TDLambdaStateEvaluator::TDLambdaStateEvaluator() : numInputs((81 * 2) + 360 + 60), r(numInputs,0.01) {
+TDLambdaStateEvaluator::TDLambdaStateEvaluator() : numInputs(1350), r(numInputs) {
     epsilon = 0.05;
     lambda = 0.8;
 }
@@ -95,8 +95,7 @@ void TDLambdaStateEvaluator::train(int numTrains) {
 } //Train the evaluator with
 
 // Returns the best move (1-ply) for the purposes of training
-Move TDLambdaStateEvaluator::getNextAction(const ChineseCheckersState &s, double &bestVal) {
-    ChineseCheckersState state = s;
+Move TDLambdaStateEvaluator::getNextAction(ChineseCheckersState &s, double &bestVal) {
     double val = rand() % 100000;
     val /= 100000;
     if (val < epsilon) { // select random move
@@ -106,16 +105,16 @@ Move TDLambdaStateEvaluator::getNextAction(const ChineseCheckersState &s, double
     s.getMoves(moves);
     Move best = {0, 0};
     bestVal = -1000;
-    
+    int currentPlayer = s.currentPlayer;
     for (Move m : moves) {
-        state.applyMove(m);
-        getFeatures(state, features, s.currentPlayer);
+        s.applyMove(m);
+        getFeatures(s, features, currentPlayer);
         double value = r.test(features);
         if (value > bestVal || best == Move{0, 0}) {
             bestVal = value;
             best = m;
         }
-        state.undoMove(m);
+        s.undoMove(m);
     }
     if (best == Move{0, 0}) { // only sideways moves
         return s.getRandomMove();
@@ -152,6 +151,12 @@ void TDLambdaStateEvaluator::trainFromTrace(const std::vector<Move> &trace)
             r.train(features,loseReward);
             loseReward = (1 - lambda) * r.test(features) + lambda * loseReward;
         }
+     //   std::cerr << "Win reward: " << winReward << " Lose Reward: " << loseReward << std::endl;
+        
+        if (winReward < 0.01) { winReward = 0.01; }
+        if (winReward > 1) { winReward = 1; }
+        if (loseReward > -0.01) { loseReward = -0.01; }
+        if (loseReward < -1) { loseReward = -1; }
         
         
     }
@@ -190,58 +195,37 @@ void TDLambdaStateEvaluator::getFeatures(const ChineseCheckersState &s, std::vec
             continue;
         }
         bool alone = true;
-        if (who == 2) {
-            for (auto mod : {-9,-8,1,9,8,-1,-18,-17,-16,-7,2,10,18,17,16,7,-2,-10}) {
-                int newPos = i + mod;
-                if (newPos < 0 || newPos > 80) {
-                    features[index] = 0;
-                    ++index;
-                    features[index] = 0;
-                    ++index;
-                    continue;
-                }
-                if (s.board[newPos] == who) {
-                    features[index] = 1;
-                    alone = false;
-                } else {
-                    features[index] = 0;
-                }
+        for (auto mod : {-1,8,9,1,-8,-9,-2,7,16,17,18,10,2,-7,-16,-17,-18,-10}) {
+            if (who == 1) { mod *= -1; }
+            int newPos = i + mod;
+            if (newPos < 0 || newPos > 80) {
+                features[index] = 0;
                 ++index;
-                if (s.board[newPos] == 3 - who) {
-                    features[index] = 1;
-                    alone = false;
-                } else {
-                    features[index] = 0;
-                }
+                features[index] = 0;
                 ++index;
+                features[index] = 1; //EXPERIMENTAL: Mark a piece of ours being on the edge as a feature.
+                ++index;
+                continue;
             }
-            
-        } else {
-            for (auto mod : {1,-8,-9,-1,8,9,2,-7,-16,-17,-18,-10,-2,7,16,17,18,10}) {
-                int newPos = i + mod;
-                if (newPos < 0 || newPos > 80) {
-                    features[index] = 0;
-                    ++index;
-                    features[index] = 0;
-                    ++index;
-                    continue;
-                }
-                if (s.board[newPos] == who) {
-                    features[index] = 1;
-                    alone = false;
-                } else {
-                    features[index] = 0;
-                }
-                ++index;
-                if (s.board[newPos] == 3 - who) {
-                    features[index] = 1;
-                    alone = false;
-                } else {
-                    features[index] = 0;
-                }
-                ++index;
+            if (s.board[newPos] == who) {
+                features[index] = 1;
+                alone = false;
+            } else {
+                features[index] = 0;
             }
+            ++index;
+            if (s.board[newPos] == 3 - who) {
+                features[index] = 1;
+                alone = false;
+            } else {
+                features[index] = 0;
+            }
+            ++index;
+         
+            features[index] = 0; //Piece is not on this particular edge.
+            ++index;
         }
+
         features[index] = alone;
         ++index;
         bool blocked = true;
@@ -266,6 +250,81 @@ void TDLambdaStateEvaluator::getFeatures(const ChineseCheckersState &s, std::vec
         
         ++index;
         if (who == 1) {
+            i++;
+        } else {
+            i--;
+        }
+    }
+    i = 0;
+    int opp = 3 - who;
+    if (opp == 2) { i = 80; }
+    std::vector<Move> oppMoves;
+    s.getMoves(oppMoves, who);
+    while ((opp == 1 && i < 81) || (opp == 2 && i >= 0)) {
+        if (s.board[i] != opp) {
+            if (opp == 1) {
+                i++;
+            } else {
+                i--;
+            }
+            continue;
+        }
+        bool alone = true;
+        for (auto mod : {-1,8,9,1,-8,-9,-2,7,16,17,18,10,2,-7,-16,-17,-18,-10}) {
+            if (opp == 1) { mod *= -1; }
+            int newPos = i + mod;
+            if (newPos < 0 || newPos > 80) {
+                features[index] = 0;
+                ++index;
+                features[index] = 0;
+                ++index;
+                features[index] = 1; //EXPERIMENTAL: Mark a piece of ours being on the edge as a feature.
+                ++index;
+                continue;
+            }
+            if (s.board[newPos] == opp) {
+                features[index] = 1;
+                alone = false;
+            } else {
+                features[index] = 0;
+            }
+            ++index;
+            if (s.board[newPos] == 3 - opp) {
+                features[index] = 1;
+                alone = false;
+            } else {
+                features[index] = 0;
+            }
+            ++index;
+            
+            features[index] = 0; //Piece is not on this particular edge.
+            ++index;
+        }
+        
+        features[index] = alone;
+        ++index;
+        bool blocked = true;
+        bool canJump = false;
+        for (auto mv : oppMoves) {
+            if (mv.from == i) {
+                blocked = false;
+                int to = mv.to;
+                int from = mv.from;
+                int dist = abs(from - to);
+                if ((dist % 9) + (dist / 9) > 1) {
+                    canJump = true;
+                    break;
+                }
+            }
+        }
+        
+        features[index] = blocked;
+        ++index;
+        
+        features[index] = canJump;
+        
+        ++index;
+        if (opp == 1) {
             i++;
         } else {
             i--;

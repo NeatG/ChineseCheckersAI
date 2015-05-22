@@ -14,17 +14,24 @@
 #include <unistd.h>
 #include <assert.h>
 #include <string.h>
+#include <iostream>
 #include "LinearRegression.h"
 
-LinearRegression::LinearRegression(int _inputs, double _rate)
+LinearRegression::LinearRegression(int _inputs)
 {
 	inputs = _inputs;
-	rate = _rate;
+
 	weights.resize(inputs+1);
 }
 
 void LinearRegression::train(std::vector<double> &input, double target)
 {
+    double featuresOn = 0;
+    for (int x = 0; x < input.size(); x++) {
+        if (input[x]) { ++featuresOn; }
+    }
+    rate = 1 / (10 * featuresOn);
+    //std::cerr << "Rate: " << rate << " Features on: " << featuresOn << std::endl;
 	double output = test(input);
 	for (int x = 0; x < input.size(); x++)
 	{

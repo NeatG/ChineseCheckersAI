@@ -7,6 +7,7 @@
 #include <string>
 #include <vector>
 #include <cmath>
+#include <thread>
 
 #include <algorithm>
 #include "TranspositionTable.h"
@@ -297,29 +298,48 @@ void Agent::setExploration(double exp) {
 
 double Agent::SelectLeaf(uint32_t node) {
     double payout = 0;
+    int numThreads = std::thread::hardware_concurrency() + 1;
     if (IsLeaf(node)) {
         if (MCTree[node].samples > 4) {
             Expand(node);
         }
         
+        uint32_t playOutNode = node;
         if (MCTree[node].numberChildren > 0) {
-            payout = DoPlayout(SelectBestChild(node), ucbDepth);
-        } else {
-            payout = DoPlayout(node, ucbDepth);
+            playOutNode = SelectBestChild(node);
         }
+        double results[numThreads];
+        std::thread** threads = new std::thread*[numThreads];
+//        void (Agent::*func)(uint32_t, int, double*);
+//        func = &Agent::DoPlayOutThread;
+        for (int i = 0;i < numThreads;++i) {
+            threads[i] = new std::thread(&Agent::DoPlayOutThread, this, playOutNode, ucbDepth, &results[i]);
+        }
+        for (int i = 0;i < numThreads;++i) {
+            threads[i]->join();
+            delete threads[i];
+            payout += results[i];
+        }
+        delete[] threads;
+        
     } else {
         payout = SelectLeaf(SelectBestChild(node));
     }
-    MCTree[node].payOff += payout;
-    ++MCTree[node].samples;
+    double multiplier = 1;
+    if (!MCTree[node].maximizing) { multiplier = -1; }
+    MCTree[node].payOff += payout * multiplier;
+    MCTree[node].samples += numThreads;
     return payout;
 }
 uint32_t Agent::SelectBestChild(uint32_t node) {
     MCTSNode nodeEntry = MCTree[node];
     uint32_t returnNode = 0;
     double bestScore = 0;
+    int minSamples = nodeEntry.samples >> 10; //EXPERIMENTAL: Make sure all child nodes have at least 0.1% of hte samples of the parent.
+    if (minSamples < 1) { minSamples = 1; }
     for (int i = nodeEntry.indexFirstChild;i < nodeEntry.indexFirstChild + nodeEntry.numberChildren;++i) {
-        if (MCTree[i].samples == 0) { return i; }
+        //if (MCTree[i].samples == 0) { return i; }
+        if (MCTree[i].samples < minSamples) { return i; }
         double score = GetUCBVal(i,node);
         if (score > bestScore || returnNode == 0) {
             bestScore = score;
@@ -355,6 +375,7 @@ void Agent::Expand(uint32_t node) {
     if (s.gameOver()) {
         return;
     }
+    bool parentMaximizing = MCTree[node].maximizing;
     std::vector<Move> leafMoves;
     s.getMoves(leafMoves);
     MCTree[node].numberChildren = leafMoves.size();
@@ -365,14 +386,28 @@ void Agent::Expand(uint32_t node) {
         leafNode.gotToHere = mv;
         leafNode.samples = 0;
         leafNode.payOff = 0;
+        leafNode.maximizing = !parentMaximizing;
         leafNode.numberChildren = 0;
         MCTree.push_back(leafNode);
     }
 }; // expand the designated node and add its children to the tree
 
+void Agent::DoPlayOutThread(uint32_t node, int depth, double* result) {    
+    *result = DoPlayout(node, depth);
+}
+
 double Agent::DoPlayout(uint32_t node, int depth) {
     ChineseCheckersState s = state;
     GetNodeState(node, s);
+    if (visitedStates.find(s.getHash()) != visitedStates.end()) {
+        if (s.currentPlayer == myPlayerNumber) { //Our opponent moved to a visited state so it is a win for us
+            if (depth == 0) { return 1; }
+            return (*stateEval).getUpperBound();
+        } else { // We moved into a visited state so it is a loss.
+            if (depth == 0) { return 0; }
+            return (*stateEval).getLowerBound();
+        }
+    }
     int depthRemaining = depth;
     if (depth == 0) { depthRemaining = 1; }
     while (!s.gameOver() && depthRemaining > 0) {
@@ -439,6 +474,7 @@ void Agent::calculateExploration(double increment, int direction) { //Tries to f
         root.parentIndex = 0;
         root.payOff = 0;
         root.samples = 0;
+        root.maximizing = false;
         MCTree.push_back(root);
         Expand(0);
         while (MCTree[0].samples < 10000) {
@@ -499,6 +535,7 @@ Move Agent::nextMove(int milliseconds) { //Advances pieces based on distance to 
         root.parentIndex = 0;
         root.payOff = 0;
         root.samples = 0;
+        root.maximizing = false;
         MCTree.push_back(root);
         Expand(0);
         
@@ -507,6 +544,7 @@ Move Agent::nextMove(int milliseconds) { //Advances pieces based on distance to 
         }
         root = MCTree[0];
         debugStream << "Tree size: " << MCTree.size() << std::endl;
+        debugStream << "Root samples: " << MCTree[0].samples << std::endl;
         //    std::cerr << MCTree[0].numberChildren << std::endl;
         Move bestMove = Move{0,0};
         double bestScore = 0;

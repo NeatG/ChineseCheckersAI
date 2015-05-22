@@ -23,7 +23,7 @@ public:
     void getFeatures(const ChineseCheckersState &s, std::vector<double> &f, int who);
     void setWeights(std::vector<double>); //Import saved weights
     void trainFromTrace(const std::vector<Move> &trace); //Train weights from a trace
-    Move getNextAction(const ChineseCheckersState &s, double &bestVal); // Returns the best move (1-ply) for the purposes of training
+    Move getNextAction(ChineseCheckersState &s, double &bestVal); // Returns the best move (1-ply) for the purposes of training
 private:
     int numInputs;
     LinearRegression r;

@@ -15,7 +15,7 @@
 
 class LinearRegression {
 public:
-	LinearRegression(int inputs, double learnrate);
+	LinearRegression(int inputs);
 	void train(std::vector<double> &input, double output);
 	double test(const std::vector<double> &input);
 	void setRate(double alpha) { rate = alpha; }
