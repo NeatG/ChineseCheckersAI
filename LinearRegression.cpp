@@ -17,45 +17,40 @@
 #include <iostream>
 #include "LinearRegression.h"
 
-LinearRegression::LinearRegression(int _inputs)
-{
+LinearRegression::LinearRegression(int _inputs) {
 	inputs = _inputs;
-
 	weights.resize(inputs+1);
 }
 
-void LinearRegression::train(std::vector<double> &input, double target)
-{
+void LinearRegression::train(std::vector<double> &input, double target) {
     double featuresOn = 0;
-    for (int x = 0; x < input.size(); x++) {
+    unsigned long input_size = input.size();
+    for (int x = 0; x < input_size; x++) {
         if (input[x]) { ++featuresOn; }
     }
     rate = 1 / (10 * featuresOn);
     //std::cerr << "Rate: " << rate << " Features on: " << featuresOn << std::endl;
 	double output = test(input);
-	for (int x = 0; x < input.size(); x++)
-	{
+	for (int x = 0; x < input_size; x++) {
         if (input[x] == 0) { continue; }
 		weights[x] += rate*(target-output)*input[x];
 	}
-	weights[input.size()] += rate*(target-output);
+	weights[input_size] += rate*(target-output);
 }
 
-double LinearRegression::test(const std::vector<double> &input)
-{
+double LinearRegression::test(const std::vector<double> &input) {
 	double result = 0;
-	for (int x = 0; x < input.size(); x++)
-	{
+    unsigned long input_size = input.size();
+	for (int x = 0; x < input_size; x++) {
+        if (input[x] == 0) { continue; }
 		result += input[x]*weights[x];
 	}
 	result += weights.back();
 	return result;
 }
 
-void LinearRegression::Print()
-{
-	for (int x = 0; x <= inputs; x++)
-	{
+void LinearRegression::Print() {
+	for (int x = 0; x <= inputs; x++) {
 		printf("%1.3f  ", weights[x]);
 	}
 	printf("\n");
