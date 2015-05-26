@@ -82,7 +82,7 @@ private:
     Players my_player;
     int myPlayerNumber;
     enum searchType { MINIMAX, MCTS };
-    searchType currentSearchType = MCTS;
+    searchType currentSearchType = MINIMAX;
     std::string name;
     std::string opp_name;
     //Overloaded minimax that does not check transposition tables or use alpha beta

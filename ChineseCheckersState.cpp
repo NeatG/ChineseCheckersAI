@@ -87,6 +87,7 @@ void ChineseCheckersState::getMoves(std::vector<Move> &moves, int forPlayer, boo
         std::swap(moves[0],moves[greatestIndex]);
     }*/
 }
+
 Move ChineseCheckersState::getRandomMove() const {
     std::vector<Move> moves;
     getMoves(moves,currentPlayer,false);
@@ -173,6 +174,7 @@ void ChineseCheckersState::reset() {
                      0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                      0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 2, 2, 0, 0, 0,
                      0, 0, 0, 2, 2, 2, 0, 0, 0, 0, 0, 2, 2, 2, 2}};
+//    pieces = {0, 1, 2, 3, 9, 10, 11, 18, 19, 27, 77, 78, 79, 80, 69, 70, 71, 61, 62, 53};
     currentPlayer = 1;
     hash = ZobristHash(*this);
 }
@@ -254,6 +256,7 @@ void ChineseCheckersState::getMovesSingleStep(std::vector<Move> &moves, unsigned
     if (col < 8 && board[from + 1] == 0)
         moves.push_back({from, from + 1});
 }
+
 bool ChineseCheckersState::moveExists(std::vector<Move> &moves, Move m) const
 {
     /*auto end = moves.end();
@@ -387,6 +390,8 @@ void ChineseCheckersState::getMovesJumpStep(std::vector<Move> &moves, unsigned o
         getMovesJumpStep(moves, originalFrom, from + 2);
     }
 }
+
+
 
 bool ChineseCheckersState::isValidMove(const Move &m) const {
     // Ensure from and to make sense

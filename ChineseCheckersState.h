@@ -16,7 +16,7 @@
 #include <vector>
 #include "Move.h"
 class StateEvaluator;
-
+class moveOrderingSort;
 
 
 class ChineseCheckersState {
@@ -37,7 +37,7 @@ public:
   ChineseCheckersState &operator=(const ChineseCheckersState&);
   // move assignment
   ChineseCheckersState &operator=(const ChineseCheckersState&&) = delete;
-
+    
     // Put all valid moves into the vector of moves passed in by reference for a given player
     void getMoves(std::vector<Move> &moves,int forPlayer, bool onlyForward = true) const;
     //Same as above but for the player whose turn it is to move
@@ -76,10 +76,9 @@ public:
     
     void swapTurn();
     
-    std::array<int, 81> board;
+    std::array<char, 81> board;
     int currentPlayer;
 private:
-  
 
   void getMovesSingleStep(std::vector<Move> &moves, unsigned from) const;
 

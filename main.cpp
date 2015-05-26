@@ -79,12 +79,19 @@ int main(int argc, char ** argv) {
         }
     }
     tdlambda.setWeights(weights);
+    double smallest = 0;
+    double largest = 0;
+    for (int i = 0;i < weights.size();++i) {
+        if (weights[i] < 0) { smallest += weights[i]; }
+        if (weights[i] > 0) { largest += weights[i]; }
+    }
+    std::cerr << "Largest " << largest << " Smallest: " << smallest << std::endl;
     ChineseCheckersState s;
     std::cerr << "Eval for Player 1: " << tdlambda.evaluate(s,1) << std::endl;
     std::cerr << "Eval for Player 2: " << tdlambda.evaluate(s,2) << std::endl;
     //a.setEvaluator(&distanceStateEval);
     a.setEvaluator(&tdlambda);
-    //a.generateOpeningBook(300);
+    //a.generateOpeningBook(30);
     if (calculatingExploration) {
         a.calculateExploration(0.25,0);
         return EXIT_SUCCESS;

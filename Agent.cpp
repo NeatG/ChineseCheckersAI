@@ -30,9 +30,15 @@ bool moveOrderingSort::operator()( const Move &lhs, const Move &rhs) const {
     uint32_t rhsMoveRepresentation = uint32_t(rhs);
     double lhsScore = moveOrdering[lhsMoveRepresentation];
     double rhsScore = moveOrdering[rhsMoveRepresentation];
-
     if (lhsScore > rhsScore) { return true; }
     if (rhsScore > lhsScore) { return false; }
+    int differencelhs = abs(static_cast<int>(lhs.to) - static_cast<int>(lhs.from));
+    int distancelhs = (differencelhs % 9) + (differencelhs / 9);
+    int differencerhs = abs(static_cast<int>(rhs.to) - static_cast<int>(rhs.from));
+    int distancerhs = (differencerhs % 9) + (differencerhs / 9);
+    if (distancelhs > distancerhs) { return true; }
+    if (distancerhs > distancelhs) { return false; }
+    
     return rhs < lhs;
     
 }
@@ -92,7 +98,7 @@ double Agent::miniMax(ChineseCheckersState& state, int depthRemaining, std::chro
         }
     }
     TranspositionTableEntry* cacheEntry = nullptr;
-    if (depthRemaining >= 2) {
+    if (depthRemaining >= 0) {
         cacheEntry = &TranspositionTable[hash % TranspositionTableCacheSize];
         if (!debugFlag && cacheEntry->hash == hash && cacheEntry->depthRemaining >= depthRemaining) { //Cache hit!
             bool returnBoundedVal = false;
@@ -508,6 +514,9 @@ Move Agent::nextMove(int milliseconds) { //Advances pieces based on distance to 
     debugStream << "  *****  " << std::endl;
     if (debugFlag) { timeLimit = move_time + std::chrono::seconds(30); }
     if (currentSearchType == MINIMAX) {
+        for (int i = 0;i < 32767;++i) {
+            moveOrdering[i] = 0;
+        }
             Move currentMove = {0, 0};
             Move lastMove = {0, 0};
             std::pair<Move,double> moveScore;
@@ -573,14 +582,7 @@ void Agent::playGame() {
   // Identify myself
 
   std::cout << "#name " << name << std::endl;
-    while (false) {
-        const Move m = nextMove();
-        // Apply it locally
-        state.applyMove(m);
-        std::cerr << debugStream.str(); //Print our debug stream _after_ we submit the move so it's not counted against our time
-        debugStream.clear();
-        debugStream.str("");
-    }
+
   // Wait for start of game
   waitForStart();
 

@@ -21,11 +21,11 @@ double TDLambdaStateEvaluator::evaluate(ChineseCheckersState& state, int who, bo
 }
 
 double TDLambdaStateEvaluator::getLowerBound() {
-    return -26; //All of the negative weights added = -25.384
+    return -15; //All of the negative weights added = -14.8
     //return -10000;
 }
 double TDLambdaStateEvaluator::getUpperBound() {
-    return 18; //I've calculated based on the current hardcoded weights that 17.3 is the heighest socre you could get.
+    return 16; //I've calculated based on the current hardcoded weights that 15.2 is the heighest socre you could get.
     //return 1000;
 }
 void TDLambdaStateEvaluator::train(int numTrains) {
@@ -163,7 +163,7 @@ void TDLambdaStateEvaluator::trainFromTrace(const std::vector<Move> &trace)
 }
 void TDLambdaStateEvaluator::getFeatures(const ChineseCheckersState &s, std::vector<double> &features, int who) {
     features.clear();
-    features.resize(numInputs); // 360 = 18 fields around each piece x 2 for ours or our opponents
+    features.resize(numInputs);
     for (int x = 0; x < 81; x++)
     {
         if (s.board[x] == who)
@@ -199,9 +199,9 @@ void TDLambdaStateEvaluator::getFeatures(const ChineseCheckersState &s, std::vec
             if (who == 1) { mod *= -1; }
             int newPos = i + mod;
             if (newPos < 0 || newPos > 80) {
-                features[index] = 0;
+                //features[index] = 0;
                 ++index;
-                features[index] = 0;
+                //features[index] = 0;
                 ++index;
                 features[index] = 1; //EXPERIMENTAL: Mark a piece of ours being on the edge as a feature.
                 ++index;
@@ -210,19 +210,19 @@ void TDLambdaStateEvaluator::getFeatures(const ChineseCheckersState &s, std::vec
             if (s.board[newPos] == who) {
                 features[index] = 1;
                 alone = false;
-            } else {
+            } /*else {
                 features[index] = 0;
-            }
+            }*/
             ++index;
             if (s.board[newPos] == 3 - who) {
                 features[index] = 1;
                 alone = false;
-            } else {
+            }/* else {
                 features[index] = 0;
-            }
+            }*/
             ++index;
          
-            features[index] = 0; //Piece is not on this particular edge.
+            //features[index] = 0; //Piece is not on this particular edge.
             ++index;
         }
 
@@ -274,9 +274,9 @@ void TDLambdaStateEvaluator::getFeatures(const ChineseCheckersState &s, std::vec
             if (opp == 1) { mod *= -1; }
             int newPos = i + mod;
             if (newPos < 0 || newPos > 80) {
-                features[index] = 0;
+                //features[index] = 0;
                 ++index;
-                features[index] = 0;
+                //features[index] = 0;
                 ++index;
                 features[index] = 1; //EXPERIMENTAL: Mark a piece of ours being on the edge as a feature.
                 ++index;
@@ -285,19 +285,19 @@ void TDLambdaStateEvaluator::getFeatures(const ChineseCheckersState &s, std::vec
             if (s.board[newPos] == opp) {
                 features[index] = 1;
                 alone = false;
-            } else {
+            } /*else {
                 features[index] = 0;
-            }
+            }*/
             ++index;
             if (s.board[newPos] == 3 - opp) {
                 features[index] = 1;
                 alone = false;
-            } else {
+            } /*else {
                 features[index] = 0;
-            }
+            }*/
             ++index;
             
-            features[index] = 0; //Piece is not on this particular edge.
+            //features[index] = 0; //Piece is not on this particular edge.
             ++index;
         }
         
